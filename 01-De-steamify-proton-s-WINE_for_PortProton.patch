@@ -1,0 +1,409 @@
+diff --git a/dlls/kernelbase/process.c b/dlls/kernelbase/process.c
+index 1a5b48a3c2b..844778983fb 100644
+--- a/dlls/kernelbase/process.c
++++ b/dlls/kernelbase/process.c
+@@ -1209,21 +1209,6 @@ HANDLE WINAPI DECLSPEC_HOTPATCH OpenProcess( DWORD access, BOOL inherit, DWORD i
+     attr.SecurityDescriptor = NULL;
+     attr.SecurityQualityOfService = NULL;
+ 
+-    /* PROTON HACK:
+-     * On Windows, the Steam client puts its process ID into the registry
+-     * at:
+-     *
+-     *   [HKCU\Software\Valve\Steam\ActiveProcess]
+-     *   PID=dword:00000008
+-     *
+-     * Games get that pid from the registry and then query it with
+-     * OpenProcess to ensure Steam is running. Since we aren't running the
+-     * Windows Steam in Wine, instead we hack this magic number into the
+-     * registry and then substitute the game's process itself in its place
+-     * so it can query a valid process.
+-     */
+-    if (id == 0xfffe) id = GetCurrentProcessId();
+-
+     cid.UniqueProcess = ULongToHandle(id);
+     cid.UniqueThread  = 0;
+ 
+diff --git a/dlls/ntdll/loader.c b/dlls/ntdll/loader.c
+index 10201aa586d..d9ff38e74b2 100644
+--- a/dlls/ntdll/loader.c
++++ b/dlls/ntdll/loader.c
+@@ -84,7 +84,7 @@ const WCHAR system_dir[] = L"C:\\windows\\system32\\";
+ HMODULE kernel32_handle = 0;
+ 
+ /* system search path */
+-static const WCHAR system_path[] = L"C:\\windows\\system32;C:\\windows\\system;C:\\windows;C:\\Program Files (x86)\\Steam";
++static const WCHAR system_path[] = L"C:\\windows\\system32;C:\\windows\\system;C:\\windows";
+ 
+ static BOOL is_prefix_bootstrap;  /* are we bootstrapping the prefix? */
+ static BOOL imports_fixup_done = FALSE;  /* set once the imports have been fixed up, before attaching them */
+@@ -2037,16 +2037,12 @@ static NTSTATUS build_module( LPCWSTR load_path, const UNICODE_STRING *nt_name,
+                               DWORD flags, BOOL system, WINE_MODREF **pwm )
+ {
+     static const char builtin_signature[] = "Wine builtin DLL";
+-    static HMODULE lsteamclient = NULL;
+     char *signature = (char *)((IMAGE_DOS_HEADER *)*module + 1);
+-    UNICODE_STRING lsteamclient_us;
+     BOOL is_builtin;
+     IMAGE_NT_HEADERS *nt;
+     WINE_MODREF *wm;
+     NTSTATUS status;
+     SIZE_T map_size;
+-    WCHAR *basename, *tmp;
+-    ULONG basename_len;
+ 
+     if (!(nt = RtlImageNtHeader( *module ))) return STATUS_INVALID_IMAGE_FORMAT;
+ 
+@@ -2067,24 +2063,6 @@ static NTSTATUS build_module( LPCWSTR load_path, const UNICODE_STRING *nt_name,
+ 
+     set_security_cookie( *module, map_size );
+ 
+-    basename = nt_name->Buffer;
+-    if ((tmp = wcsrchr(basename, '\\'))) basename = tmp + 1;
+-    if ((tmp = wcsrchr(basename, '/'))) basename = tmp + 1;
+-    basename_len = wcslen(basename);
+-    if (basename_len >= 4 && !wcscmp(basename + basename_len - 4, L".dll")) basename_len -= 4;
+-
+-    if ((!RtlCompareUnicodeStrings(basename, basename_len, L"steamclient", 11, TRUE) ||
+-         !RtlCompareUnicodeStrings(basename, basename_len, L"steamclient64", 13, TRUE) ||
+-         !RtlCompareUnicodeStrings(basename, basename_len, L"gameoverlayrenderer", 19, TRUE) ||
+-         !RtlCompareUnicodeStrings(basename, basename_len, L"gameoverlayrenderer64", 21, TRUE)) &&
+-        RtlCreateUnicodeStringFromAsciiz(&lsteamclient_us, "lsteamclient.dll") &&
+-        (lsteamclient || LdrLoadDll(load_path, 0, &lsteamclient_us, &lsteamclient) == STATUS_SUCCESS))
+-    {
+-        unix_funcs->steamclient_setup_trampolines( *module, lsteamclient );
+-        wm->ldr.Flags |= LDR_DONT_RESOLVE_REFS;
+-        flags |= DONT_RESOLVE_DLL_REFERENCES;
+-    }
+-
+     /* fixup imports */
+ 
+     if (!(flags & DONT_RESOLVE_DLL_REFERENCES) &&
+diff --git a/dlls/ntdll/unix/env.c b/dlls/ntdll/unix/env.c
+index fe14b48420d..918248943b8 100644
+--- a/dlls/ntdll/unix/env.c
++++ b/dlls/ntdll/unix/env.c
+@@ -2620,6 +2620,5 @@ ULONG WINAPI RtlNtStatusToDosError( NTSTATUS status )
+ 
+ void CDECL set_unix_env( const char *var, const char *val )
+ {
+-    if (!val) unsetenv(var);
+-    else setenv(var, val, 1);
++    setenv(var, val, 1);
+ }
+diff --git a/dlls/ntdll/unix/loader.c b/dlls/ntdll/unix/loader.c
+index badc36c3147..3a1dde17bcb 100644
+--- a/dlls/ntdll/unix/loader.c
++++ b/dlls/ntdll/unix/loader.c
+@@ -767,7 +767,6 @@ NTSTATUS exec_wineloader( char **argv, int socketfd, const pe_image_info_t *pe_i
+     ULONGLONG res_end = pe_info->base + pe_info->map_size;
+     const char *loader = argv0;
+     const char *loader_env = getenv( "WINELOADER" );
+-    const char *ld_preload = getenv( "LD_PRELOAD" );
+     char preloader_reserve[64], socket_env[64];
+     BOOL is_child_64bit;
+ 
+@@ -802,36 +801,6 @@ NTSTATUS exec_wineloader( char **argv, int socketfd, const pe_image_info_t *pe_i
+         else loader = is_child_64bit ? "wine64" : "wine";
+     }
+ 
+-    /* HACK: Unset LD_PRELOAD before executing explorer.exe to disable buggy gameoverlayrenderer.so */
+-    if (ld_preload && argv[2] && !strcmp( argv[2], "C:\\windows\\system32\\explorer.exe" ) &&
+-        argv[3] && !strcmp( argv[3], "/desktop" ))
+-    {
+-        static char const gorso[] = "gameoverlayrenderer.so";
+-        static int gorso_len = sizeof(gorso) - 1;
+-        int len = strlen( ld_preload );
+-        char *next, *tmp, *env = malloc( sizeof("LD_PRELOAD=") + len );
+-
+-        if (!env) return STATUS_NO_MEMORY;
+-        strcpy( env, "LD_PRELOAD=" );
+-        strcat( env, ld_preload );
+-
+-        tmp = env + 11;
+-        do
+-        {
+-            if (!(next = strchr( tmp, ':' ))) next = tmp + strlen( tmp );
+-            if (next - tmp >= gorso_len && strncmp( next - gorso_len, gorso, gorso_len ) == 0)
+-            {
+-                if (*next) memmove( tmp, next + 1, strlen(next) );
+-                else *tmp = 0;
+-                next = tmp;
+-            }
+-            else tmp = next + 1;
+-        }
+-        while (*next);
+-
+-        putenv( env );
+-    }
+-
+     signal( SIGPIPE, SIG_DFL );
+ 
+     sprintf( socket_env, "WINESERVERSOCKET=%u", socketfd );
+@@ -2132,93 +2101,6 @@ static ULONG_PTR get_image_address(void)
+ }
+ 
+ 
+-static void *steamclient_srcs[128];
+-static void *steamclient_tgts[128];
+-static int steamclient_count;
+-
+-void *steamclient_handle_fault( LPCVOID addr, DWORD err )
+-{
+-    int i;
+-
+-    if (!(err & EXCEPTION_EXECUTE_FAULT)) return NULL;
+-
+-    for (i = 0; i < steamclient_count; ++i)
+-    {
+-        if (addr == steamclient_srcs[i])
+-            return steamclient_tgts[i];
+-    }
+-
+-    return NULL;
+-}
+-
+-static void steamclient_write_jump(void *src_addr, void *tgt_addr)
+-{
+-#ifdef _WIN64
+-    static const char mov[] = {0x48, 0xb8};
+-#else
+-    static const char mov[] = {0xb8};
+-#endif
+-    static const char jmp[] = {0xff, 0xe0};
+-    memcpy(src_addr, mov, sizeof(mov));
+-    memcpy((char *)src_addr + sizeof(mov), &tgt_addr, sizeof(tgt_addr));
+-    memcpy((char *)src_addr + sizeof(mov) + sizeof(tgt_addr), jmp, sizeof(jmp));
+-}
+-
+-static void CDECL steamclient_setup_trampolines(HMODULE src_mod, HMODULE tgt_mod)
+-{
+-    static int noexec_cached = -1;
+-
+-    SYSTEM_BASIC_INFORMATION info;
+-    IMAGE_NT_HEADERS *src_nt = (IMAGE_NT_HEADERS *)((UINT_PTR)src_mod + ((IMAGE_DOS_HEADER *)src_mod)->e_lfanew);
+-    IMAGE_NT_HEADERS *tgt_nt = (IMAGE_NT_HEADERS *)((UINT_PTR)tgt_mod + ((IMAGE_DOS_HEADER *)tgt_mod)->e_lfanew);
+-    IMAGE_SECTION_HEADER *src_sec = (IMAGE_SECTION_HEADER *)(src_nt + 1);
+-    const IMAGE_EXPORT_DIRECTORY *src_exp, *tgt_exp;
+-    const DWORD *names;
+-    SIZE_T size;
+-    void *addr, *src_addr, *tgt_addr;
+-    char *name, *wsne;
+-    UINT_PTR page_mask;
+-    int i;
+-
+-    if (noexec_cached == -1)
+-        noexec_cached = (wsne = getenv("WINESTEAMNOEXEC")) && atoi(wsne);
+-
+-    virtual_get_system_info( &info, !!NtCurrentTeb()->WowTebOffset );
+-    page_mask = info.PageSize - 1;
+-
+-    for (i = 0; i < src_nt->FileHeader.NumberOfSections; ++i)
+-    {
+-        if (memcmp(src_sec[i].Name, ".text", 5)) continue;
+-        addr = (void *)(((UINT_PTR)src_mod + src_sec[i].VirtualAddress) & ~page_mask);
+-        size = (src_sec[i].Misc.VirtualSize + page_mask) & ~page_mask;
+-        if (noexec_cached) mprotect(addr, size, PROT_READ);
+-        else mprotect(addr, size, PROT_READ|PROT_WRITE|PROT_EXEC);
+-    }
+-
+-    src_exp = get_module_data_dir( src_mod, IMAGE_FILE_EXPORT_DIRECTORY, NULL );
+-    tgt_exp = get_module_data_dir( tgt_mod, IMAGE_FILE_EXPORT_DIRECTORY, NULL );
+-    names = (const DWORD *)((UINT_PTR)src_mod + src_exp->AddressOfNames);
+-    for (i = 0; i < src_exp->NumberOfNames; ++i)
+-    {
+-        if (!names[i] || !(name = (char *)((UINT_PTR)src_mod + names[i]))) continue;
+-        if (!(src_addr = (void *)find_named_export(src_mod, src_exp, name))) continue;
+-        if (!(tgt_addr = (void *)find_named_export(tgt_mod, tgt_exp, name))) continue;
+-        assert(steamclient_count < ARRAY_SIZE(steamclient_srcs));
+-        steamclient_srcs[steamclient_count] = src_addr;
+-        steamclient_tgts[steamclient_count] = tgt_addr;
+-        if (!noexec_cached) steamclient_write_jump(src_addr, tgt_addr);
+-        else steamclient_count++;
+-    }
+-
+-    src_addr = (void *)((UINT_PTR)src_mod + src_nt->OptionalHeader.AddressOfEntryPoint);
+-    tgt_addr = (void *)((UINT_PTR)tgt_mod + tgt_nt->OptionalHeader.AddressOfEntryPoint);
+-    assert(steamclient_count < ARRAY_SIZE(steamclient_srcs));
+-    steamclient_srcs[steamclient_count] = src_addr;
+-    steamclient_tgts[steamclient_count] = tgt_addr;
+-    if (!noexec_cached) steamclient_write_jump(src_addr, tgt_addr);
+-    else steamclient_count++;
+-}
+-
+ static BOOL CDECL debugstr_pc( void *pc, char *buffer, unsigned int size )
+ {
+     unsigned int len;
+@@ -2231,7 +2113,6 @@ static struct unix_funcs unix_funcs =
+ #ifdef __aarch64__
+     NtCurrentTeb,
+ #endif
+-    steamclient_setup_trampolines,
+     set_unix_env,
+     write_crash_log,
+ };
+diff --git a/dlls/ntdll/unix/signal_i386.c b/dlls/ntdll/unix/signal_i386.c
+index a0afd33ea13..d350dc6a13b 100644
+--- a/dlls/ntdll/unix/signal_i386.c
++++ b/dlls/ntdll/unix/signal_i386.c
+@@ -1825,7 +1825,6 @@ static void segv_handler( int signal, siginfo_t *siginfo, void *sigcontext )
+     EXCEPTION_RECORD rec = { 0 };
+     struct xcontext xcontext;
+     ucontext_t *ucontext = sigcontext;
+-    void *steamclient_addr = NULL;
+     void *stack;
+ 
+     if (TRAP_sig(ucontext) == TRAP_x86_PROTFLT && ERROR_sig(ucontext) == ((0x29 << 3) | 2))
+@@ -1873,11 +1872,6 @@ static void segv_handler( int signal, siginfo_t *siginfo, void *sigcontext )
+         }
+         break;
+     case TRAP_x86_PAGEFLT:  /* Page fault */
+-        if ((steamclient_addr = steamclient_handle_fault( siginfo->si_addr, (ERROR_sig(ucontext) >> 1) & 0x09 )))
+-        {
+-            EIP_sig(ucontext) = (intptr_t)steamclient_addr;
+-            return;
+-        }
+ 
+         rec.NumberParameters = 2;
+         rec.ExceptionInformation[0] = (ERROR_sig(ucontext) >> 1) & 0x09;
+diff --git a/dlls/ntdll/unix/signal_x86_64.c b/dlls/ntdll/unix/signal_x86_64.c
+index b1cc682649b..e0f42814030 100644
+--- a/dlls/ntdll/unix/signal_x86_64.c
++++ b/dlls/ntdll/unix/signal_x86_64.c
+@@ -2854,7 +2854,6 @@ static void segv_handler( int signal, siginfo_t *siginfo, void *sigcontext )
+     EXCEPTION_RECORD rec = { 0 };
+     struct xcontext context;
+     ucontext_t *ucontext = sigcontext;
+-    void *steamclient_addr = NULL;
+ 
+     if (TRAP_sig(ucontext) == TRAP_x86_PROTFLT && ERROR_sig(ucontext) == ((0x29 << 3) | 2))
+     {
+@@ -2897,11 +2896,6 @@ static void segv_handler( int signal, siginfo_t *siginfo, void *sigcontext )
+         }
+         break;
+     case TRAP_x86_PAGEFLT:  /* Page fault */
+-        if ((steamclient_addr = steamclient_handle_fault( siginfo->si_addr, (ERROR_sig(ucontext) >> 1) & 0x09 )))
+-        {
+-            RIP_sig(ucontext) = (intptr_t)steamclient_addr;
+-            return;
+-        }
+ 
+         rec.NumberParameters = 2;
+         rec.ExceptionInformation[0] = (ERROR_sig(ucontext) >> 1) & 0x09;
+diff --git a/dlls/ntdll/unix/unix_private.h b/dlls/ntdll/unix/unix_private.h
+index 4bf0e7cb84e..001ac6c315b 100644
+--- a/dlls/ntdll/unix/unix_private.h
++++ b/dlls/ntdll/unix/unix_private.h
+@@ -200,8 +200,6 @@ extern NTSTATUS alloc_object_attributes( const OBJECT_ATTRIBUTES *attr, struct o
+ extern void *anon_mmap_fixed( void *start, size_t size, int prot, int flags ) DECLSPEC_HIDDEN;
+ extern void *anon_mmap_alloc( size_t size, int prot ) DECLSPEC_HIDDEN;
+ 
+-extern void *steamclient_handle_fault( LPCVOID addr, DWORD err ) DECLSPEC_HIDDEN;
+-
+ extern void virtual_init(void) DECLSPEC_HIDDEN;
+ extern ULONG_PTR get_system_affinity_mask(void) DECLSPEC_HIDDEN;
+ extern void virtual_get_system_info( SYSTEM_BASIC_INFORMATION *info, BOOL wow64 ) DECLSPEC_HIDDEN;
+diff --git a/dlls/ntdll/unixlib.h b/dlls/ntdll/unixlib.h
+index a99ba072b03..c917374bc87 100644
+--- a/dlls/ntdll/unixlib.h
++++ b/dlls/ntdll/unixlib.h
+@@ -41,8 +41,6 @@ struct unix_funcs
+     TEB *         (WINAPI *NtCurrentTeb)(void);
+ #endif
+ 
+-    /* steamclient HACK */
+-    void          (CDECL *steamclient_setup_trampolines)( HMODULE src_mod, HMODULE tgt_mod );
+     void          (CDECL *set_unix_env)( const char *var, const char *val );
+     void          (CDECL *write_crash_log)( const char *log_type, const char *log_msg );
+ };
+
+diff --git a/dlls/winex11.drv/window.c b/dlls/winex11.drv/window.c
+index a0d71c6e7f6..16cac731731 100644
+--- a/dlls/winex11.drv/window.c
++++ b/dlls/winex11.drv/window.c
+@@ -1029,19 +1029,8 @@ static void set_initial_wm_hints( Display *display, Window window )
+     /* class hints */
+     if ((class_hints = XAllocClassHint()))
+     {
+-        static char steam_proton[] = "steam_proton";
+-        const char *app_id = getenv("SteamAppId");
+-        char proton_app_class[128];
+-
+-        if(app_id && *app_id){
+-            snprintf(proton_app_class, sizeof(proton_app_class), "steam_app_%s", app_id);
+-            class_hints->res_name = proton_app_class;
+-            class_hints->res_class = proton_app_class;
+-        }else{
+-            class_hints->res_name = steam_proton;
+-            class_hints->res_class = steam_proton;
+-        }
+-
++        class_hints->res_name = process_name;
++        class_hints->res_class = process_name;
+         XSetClassHint( display, window, class_hints );
+         XFree( class_hints );
+     }
+diff --git a/loader/wine.inf.in b/loader/wine.inf.in
+index a08568eb9a3..bd391d8923d 100644
+--- a/loader/wine.inf.in
++++ b/loader/wine.inf.in
+@@ -100,8 +100,7 @@ AddReg=\
+     VersionInfo,\
+     LicenseInformation, \
+     NVIDIANGX, \
+-    ProtonOverrides, \
+-    SteamClient
++    ProtonOverrides
+ 
+ [DefaultInstall.ntamd64]
+ RegisterDlls=RegisterDllsSection
+@@ -130,8 +129,7 @@ AddReg=\
+     VersionInfo.ntamd64,\
+     LicenseInformation, \
+     NVIDIANGX, \
+-    ProtonOverrides, \
+-    SteamClient.ntamd64
++    ProtonOverrides
+ 
+ [DefaultInstall.ntarm64]
+ RegisterDlls=RegisterDllsSection
+@@ -176,8 +174,7 @@ AddReg=\
+     VersionInfo.ntamd64,\
+     LicenseInformation, \
+     NVIDIANGX, \
+-    ProtonOverrides, \
+-    SteamClient.ntamd64
++    ProtonOverrides
+ 
+ [Wow64Install.ntarm64]
+ WineFakeDlls=FakeDllsWin32
+@@ -334,7 +331,6 @@ HKCR,ftp\shell\open\command,,2,"""%11%\winebrowser.exe"" ""%1"""
+ HKCR,http\shell\open\command,,2,"""%11%\winebrowser.exe"" ""%1"""
+ HKCR,https\shell\open\command,,2,"""%11%\winebrowser.exe"" ""%1"""
+ HKCR,mailto\shell\open\command,,2,"""%11%\winebrowser.exe"" ""%1"""
+-HKCR,steam\shell\open\command,,,"""%16426%\Steam\Steam.exe"" -- ""%1"""
+ 
+ HKCR,MIME\Database\Charset\_iso-2022-jp$ESC,"Codepage",0x10003,932
+ HKCR,MIME\Database\Charset\_iso-2022-jp$ESC,"InternetEncoding",0x10003,50221
+@@ -5858,22 +5854,6 @@ InfFiles  = 17
+ NlsFiles  = 11
+ SortFiles = 10,globalization\sorting
+ 
+-[SteamClient]
+-HKCU,Software\Valve\Steam,"SteamPath",,"%16422%\Steam"
+-HKCU,Software\Valve\Steam,"SteamExe",,"%16422%\Steam\Steam.exe"
+-HKCU,Software\Valve\Steam\ActiveProcess,"PID",0x10001,0x0000fffe
+-HKCU,Software\Valve\Steam\ActiveProcess,"SteamClientDll",,"%16422%\Steam\steamclient.dll"
+-HKCU,Software\Valve\Steam\ActiveProcess,"SteamPath",,"%16422%\Steam"
+-
+-[SteamClient.ntamd64]
+-HKCU,Software\Valve\Steam,"SteamPath",,"%16422%\Steam"
+-HKCU,Software\Valve\Steam,"SteamExe",,"%16422%\Steam\Steam.exe"
+-HKCU,Software\Valve\Steam\ActiveProcess,"PID",0x10001,0x0000fffe
+-HKCU,Software\Valve\Steam\ActiveProcess,"SteamClientDll",,"%16426%\Steam\steamclient.dll"
+-HKCU,Software\Valve\Steam\ActiveProcess,"SteamClientDll64",,"%16426%\Steam\steamclient64.dll"
+-HKCU,Software\Valve\Steam\ActiveProcess,"SteamPath",,"%16426%\Steam"
+-HKLM,Software\Wow6432Node\Valve\Steam,"InstallPath",,"%16422%\Steam"
+-
+ [NVIDIANGX]
+ HKLM,Software\NVIDIA Corporation\Global\NGXCore,"FullPath",,"C:\Windows\System32"
