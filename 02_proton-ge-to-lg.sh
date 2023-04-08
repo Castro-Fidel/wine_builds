@@ -15,9 +15,9 @@ else
     git submodule update --init
 fi
 
-echo "adding protonprep-valve-staging.sh"
-cd "${SCRIPTS_PATH}/proton-ge-custom/"
-sh ./patches/protonprep-valve-staging.sh
+# echo "adding protonprep-valve-staging.sh"
+# cd "${SCRIPTS_PATH}/proton-ge-custom/"
+# sh ./patches/protonprep-valve-staging.sh
 
 echo "adding 01-De-steamify-proton-s-WINE_for_PortProton.patch"
 cd "${SCRIPTS_PATH}/proton-ge-custom/wine/"

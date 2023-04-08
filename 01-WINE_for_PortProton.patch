@@ -1,0 +1,142 @@
+diff --git a/configure b/configure
+index 94e01bb372a..81d9ca00b98 100755
+--- a/configure
++++ b/configure
+@@ -1924,6 +1924,7 @@ enable_wineconsole
+ enable_winedbg
+ enable_winedevice
+ enable_winefile
++enable_winemenubuilder
+ enable_winemine
+ enable_winemsibuilder
+ enable_winepath
+@@ -22712,6 +22713,7 @@ wine_fn_config_makefile programs/wineconsole enable_wineconsole
+ wine_fn_config_makefile programs/winedbg enable_winedbg
+ wine_fn_config_makefile programs/winedevice enable_winedevice
+ wine_fn_config_makefile programs/winefile enable_winefile
++wine_fn_config_makefile programs/winemenubuilder enable_winemenubuilder
+ wine_fn_config_makefile programs/winemine enable_winemine
+ wine_fn_config_makefile programs/winemsibuilder enable_winemsibuilder
+ wine_fn_config_makefile programs/winepath enable_winepath
+diff --git a/configure.ac b/configure.ac
+index 9134e30bb7a..80607db0f55 100644
+--- a/configure.ac
++++ b/configure.ac
+@@ -3676,6 +3676,7 @@ WINE_CONFIG_MAKEFILE(programs/wineconsole)
+ WINE_CONFIG_MAKEFILE(programs/winedbg)
+ WINE_CONFIG_MAKEFILE(programs/winedevice)
+ WINE_CONFIG_MAKEFILE(programs/winefile)
++WINE_CONFIG_MAKEFILE(programs/winemenubuilder)
+ WINE_CONFIG_MAKEFILE(programs/winemine)
+ WINE_CONFIG_MAKEFILE(programs/winemsibuilder)
+ WINE_CONFIG_MAKEFILE(programs/winepath)
+diff --git a/dlls/advapi32/advapi.c b/dlls/advapi32/advapi.c
+index 0ebe6a354b5..33c63f3cb20 100644
+--- a/dlls/advapi32/advapi.c
++++ b/dlls/advapi32/advapi.c
+@@ -43,15 +43,14 @@ WINE_DEFAULT_DEBUG_CHANNEL(advapi);
+  */
+ BOOL WINAPI GetUserNameA( LPSTR name, LPDWORD size )
+ {
+-    static const char steamuserA[] = {'s','t','e','a','m','u','s','e','r',0};
+-    if(*size < ARRAY_SIZE(steamuserA)){
+-        SetLastError( ERROR_INSUFFICIENT_BUFFER );
+-        *size = ARRAY_SIZE(steamuserA);
+-        return FALSE;
+-    }
+-    memcpy(name, steamuserA, sizeof(steamuserA));
+-    *size = ARRAY_SIZE(steamuserA);
+-    return TRUE;
++    DWORD len = GetEnvironmentVariableA( "WINEUSERNAME", name, *size );
++    BOOL ret;
++
++    if (!len) return FALSE;
++    if ((ret = (len < *size))) len++;
++    else SetLastError( ERROR_INSUFFICIENT_BUFFER );
++    *size = len;
++    return ret;
+ }
+
+ /******************************************************************************
+@@ -59,15 +58,14 @@ BOOL WINAPI GetUserNameA( LPSTR name, LPDWORD size )
+  */
+ BOOL WINAPI GetUserNameW( LPWSTR name, LPDWORD size )
+ {
+-    static const WCHAR steamuserW[] = {'s','t','e','a','m','u','s','e','r',0};
+-    if(*size < ARRAY_SIZE(steamuserW)){
+-        SetLastError( ERROR_INSUFFICIENT_BUFFER );
+-        *size = ARRAY_SIZE(steamuserW);
+-        return FALSE;
+-    }
+-    memcpy(name, steamuserW, sizeof(steamuserW));
+-    *size = ARRAY_SIZE(steamuserW);
+-    return TRUE;
++    DWORD len = GetEnvironmentVariableW( L"WINEUSERNAME", name, *size );
++    BOOL ret;
++
++    if (!len) return FALSE;
++    if ((ret = (len < *size))) len++;
++    else SetLastError( ERROR_INSUFFICIENT_BUFFER );
++    *size = len;
++    return ret;
+ }
+
+ /******************************************************************************
+diff --git a/programs/wineboot/wineboot.c b/programs/wineboot/wineboot.c
+index 012155fccba..eddf78170d5 100644
+--- a/programs/wineboot/wineboot.c
++++ b/programs/wineboot/wineboot.c
+@@ -1461,6 +1461,37 @@ static BOOL start_services_process(void)
+     return TRUE;
+ }
+
++static INT_PTR CALLBACK wait_dlgproc( HWND hwnd, UINT msg, WPARAM wp, LPARAM lp )
++{
++    switch (msg)
++    {
++    case WM_INITDIALOG:
++        {
++            DWORD len;
++            WCHAR *buffer, text[1024];
++            const WCHAR *name = (WCHAR *)lp;
++            HICON icon = LoadImageW( 0, (LPCWSTR)IDI_WINLOGO, IMAGE_ICON, 48, 48, LR_SHARED );
++            SendDlgItemMessageW( hwnd, IDC_WAITICON, STM_SETICON, (WPARAM)icon, 0 );
++            SendDlgItemMessageW( hwnd, IDC_WAITTEXT, WM_GETTEXT, 1024, (LPARAM)text );
++            len = lstrlenW(text) + lstrlenW(name) + 1;
++            buffer = HeapAlloc( GetProcessHeap(), 0, len * sizeof(WCHAR) );
++            swprintf( buffer, len, text, name );
++            SendDlgItemMessageW( hwnd, IDC_WAITTEXT, WM_SETTEXT, 0, (LPARAM)buffer );
++            HeapFree( GetProcessHeap(), 0, buffer );
++        }
++        break;
++    }
++    return 0;
++}
++
++static HWND show_wait_window(void)
++{
++    HWND hwnd = CreateDialogParamW( GetModuleHandleW(0), MAKEINTRESOURCEW(IDD_WAITDLG), 0,
++                                    wait_dlgproc, (LPARAM)prettyprint_configdir() );
++    ShowWindow( hwnd, SW_SHOWNORMAL );
++    return hwnd;
++}
++
+ static HANDLE start_rundll32( const WCHAR *inf_path, const WCHAR *install, WORD machine )
+ {
+     WCHAR app[MAX_PATH + ARRAY_SIZE(L"\\rundll32.exe" )];
+@@ -1648,6 +1679,7 @@ static void update_wineprefix( BOOL force )
+
+         if ((process = start_rundll32( inf_path, L"PreInstall", IMAGE_FILE_MACHINE_TARGET_HOST )))
+         {
++            HWND hwnd = show_wait_window();
+             for (;;)
+             {
+                 MSG msg;
+@@ -1665,6 +1697,7 @@ static void update_wineprefix( BOOL force )
+                 }
+                 else while (PeekMessageW( &msg, 0, 0, 0, PM_REMOVE )) DispatchMessageW( &msg );
+             }
++            DestroyWindow( hwnd );
+         }
+         install_root_pnp_devices();
+         update_user_profile();

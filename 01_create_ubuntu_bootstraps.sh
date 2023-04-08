@@ -21,12 +21,12 @@ fi
 # Keep in mind that although you can choose any version of Ubuntu/Debian
 # here, but this script has only been tested with Ubuntu 18.04 Bionic
 export CHROOT_DISTRO="bionic"
-export CHROOT_MIRROR="http://archive.ubuntu.com/ubuntu/"
+export CHROOT_MIRROR="https://ftp.uni-stuttgart.de/ubuntu/"
 
 # Set your preferred path for storing chroots
 # Also don't forget to change the path to the chroots in the build_wine.sh
 # script, if you are going to use it
-export MAINDIR="/opt/chroots"
+export MAINDIR=/opt/chroots
 export CHROOT_X64="${MAINDIR}"/${CHROOT_DISTRO}64_chroot
 export CHROOT_X32="${MAINDIR}"/${CHROOT_DISTRO}32_chroot
 
@@ -66,11 +66,11 @@ prepare_chroot () {
 }
 
 create_build_scripts () {
-	sdl2_version="2.0.22"
-	faudio_version="22.08"
-	vulkan_headers_version="1.3.224"
-	vulkan_loader_version="1.3.224"
-	spirv_headers_version="sdk-1.3.216.0"
+	sdl2_version="2.26.4"
+	faudio_version="23.03"
+	vulkan_headers_version="1.3.239"
+	vulkan_loader_version="1.3.239"
+	spirv_headers_version="sdk-1.3.239.0"
 
 	cat <<EOF > "${MAINDIR}"/prepare_chroot.sh
 #!/bin/bash
@@ -125,7 +125,9 @@ cmake ../FAudio-${faudio_version} && make -j$(nproc) && make install
 cd ../ && rm -r build && mkdir build && cd build
 cmake ../Vulkan-Headers-${vulkan_headers_version} && make -j$(nproc) && make install
 cd ../ && rm -r build && mkdir build && cd build
-cmake ../Vulkan-Loader-${vulkan_loader_version} && make -j$(nproc) && make install
+cmake ../Vulkan-Loader-${vulkan_loader_version}
+make -j$(nproc)
+make install
 cd ../ && rm -r build && mkdir build && cd build
 cmake ../SPIRV-Headers-${spirv_headers_version} && make -j$(nproc) && make install
 cd ../ && dpkg -x wine.deb .
@@ -153,5 +155,4 @@ prepare_chroot 64
 rm "${CHROOT_X64}"/opt/prepare_chroot.sh
 rm "${CHROOT_X32}"/opt/prepare_chroot.sh
 
-clear
 echo "Done"

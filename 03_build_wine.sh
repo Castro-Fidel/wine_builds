@@ -22,9 +22,6 @@ if [ $EUID = 0 ] && [ -z "$ALLOW_ROOT" ]; then
 	exit 1
 fi
 
-cd "$(dirname "`readlink -f "$0"`")"
-export SCRIPTS_PATH="$(pwd)"
-
 # Wine version to compile.
 # You can set it to "latest" to compile the latest available version.
 #
@@ -33,7 +30,7 @@ export SCRIPTS_PATH="$(pwd)"
 export WINE_VERSION="latest"
 
 # Available branches: vanilla, staging, staging-tkg, proton, wayland
-export WINE_BRANCH="staging"
+export WINE_BRANCH="staging-tkg"
 
 # Available proton branches: proton_3.7, proton_3.16, proton_4.2, proton_4.11
 # proton_5.0, proton_5.13, experimental_5.13, proton_6.3, experimental_6.3
@@ -43,7 +40,7 @@ export PROTON_BRANCH="proton_7.0"
 
 # Sometimes Wine and Staging versions don't match (for example, 5.15.2).
 # Leave this empty to use Staging version that matches the Wine version.
-export STAGING_VERSION=""
+# export CUSTOM_SRC_PATH="${SCRIPTS_PATH}/proton-ge-custom/wine/"
 
 # Specify custom arguments for the Staging's patchinstall.sh script.
 # For example, if you want to disable ntdll-NtAlertThreadByThreadId
@@ -60,7 +57,7 @@ export STAGING_ARGS=""
 #
 # If you don't want to compile a custom Wine source code, then just leave this
 # variable empty.
-export CUSTOM_SRC_PATH="${SCRIPTS_PATH}/proton-ge-custom/wine/"
+export CUSTOM_SRC_PATH="/home/fidel/LINUX-GAMING.RU/GIT/wine_builds/wine-tkg-master"
 
 # Set to true to download and prepare the source code, but do not compile it.
 # If this variable is set to true, root rights are not required.
@@ -142,6 +139,26 @@ build_with_bwrap () {
 			"$@"
 }
 
+if ! command -v git 1>/dev/null; then
+	echo "Please install git and run the script again"
+	exit 1
+fi
+
+if ! command -v autoconf 1>/dev/null; then
+	echo "Please install autoconf and run the script again"
+	exit 1
+fi
+
+if ! command -v wget 1>/dev/null; then
+	echo "Please install wget and run the script again"
+	exit 1
+fi
+
+if ! command -v xz 1>/dev/null; then
+	echo "Please install xz and run the script again"
+	exit 1
+fi
+
 # Replace the "latest" parameter with the actual latest Wine version
 if [ "${WINE_VERSION}" = "latest" ] || [ -z "${WINE_VERSION}" ]; then
 	WINE_VERSION="$(wget -q -O - "https://raw.githubusercontent.com/wine-mirror/wine/master/VERSION" | tail -c +14)"
@@ -212,29 +229,37 @@ elif [ "$WINE_BRANCH" = "proton" ]; then
 else
 	BUILD_NAME="${WINE_VERSION}"
 
-	wget -q --show-progress https://dl.winehq.org/wine/source/${WINE_URL_VERSION}/wine-${WINE_VERSION}.tar.xz
+	wget -q --show-progress "https://dl.winehq.org/wine/source/${WINE_URL_VERSION}/wine-${WINE_VERSION}.tar.xz"
 
-	tar xf wine-${WINE_VERSION}.tar.xz
-	mv wine-${WINE_VERSION} wine
+	tar xf "wine-${WINE_VERSION}.tar.xz"
+	mv "wine-${WINE_VERSION}" wine
 
 	if [ "${WINE_BRANCH}" = "staging" ]; then
-		if [ ! -z "$STAGING_VERSION" ]; then
+		if [ -n "$STAGING_VERSION" ]; then
 			WINE_VERSION="${STAGING_VERSION}"
 		fi
 
 		BUILD_NAME="${WINE_VERSION}"-staging
 
-		wget -q --show-progress https://github.com/wine-staging/wine-staging/archive/v${WINE_VERSION}.tar.gz
-		tar xf v${WINE_VERSION}.tar.gz
+		wget -q --show-progress "https://github.com/wine-staging/wine-staging/archive/v${WINE_VERSION}.tar.gz"
+		tar xf v"${WINE_VERSION}".tar.gz
 
-		if [ ! -f v${WINE_VERSION}.tar.gz ]; then
-			git clone https://github.com/wine-staging/wine-staging wine-staging-${WINE_VERSION}
+		if [ ! -f v"${WINE_VERSION}".tar.gz ]; then
+			git clone https://github.com/wine-staging/wine-staging wine-staging-"${WINE_VERSION}"
 		fi
 
-		if [ -n "${STAGING_ARGS}" ]; then
-			wine-staging-${WINE_VERSION}/patches/patchinstall.sh DESTDIR="${BUILD_DIR}"/wine ${STAGING_ARGS}
+		if [ -f wine-staging-"${WINE_VERSION}"/patches/patchinstall.sh ]; then
+			staging_patcher=("${BUILD_DIR}"/wine-staging-"${WINE_VERSION}"/patches/patchinstall.sh
+							DESTDIR="${BUILD_DIR}"/wine)
 		else
-			wine-staging-${WINE_VERSION}/patches/patchinstall.sh DESTDIR="${BUILD_DIR}"/wine --all
+			staging_patcher=("${BUILD_DIR}"/wine-staging-"${WINE_VERSION}"/staging/patchinstall.py)
+		fi
+
+		cd wine || exit
+		if [ -n "${STAGING_ARGS}" ]; then
+			"${staging_patcher[@]}" ${STAGING_ARGS}
+		else
+			"${staging_patcher[@]}" --all
 		fi
 
 		if [ $? -ne 0 ]; then
@@ -242,6 +267,8 @@ else
 			echo "Wine-Staging patches were not applied correctly!"
 			exit 1
 		fi
+
+		cd "${BUILD_DIR}" || exit
 	fi
 fi
 
@@ -252,11 +279,11 @@ if [ ! -d wine ]; then
 	exit 1
 fi
 
-cd wine
+cd wine || exit
 dlls/winevulkan/make_vulkan
 tools/make_requests
 autoreconf -f
-cd "${BUILD_DIR}"
+cd "${BUILD_DIR}" || exit
 
 if [ "${DO_NOT_COMPILE}" = "true" ]; then
 	clear
@@ -288,8 +315,8 @@ export CROSSCFLAGS="${CROSSCFLAGS_X64}"
 export CROSSCXXFLAGS="${CROSSCFLAGS_X64}"
 
 mkdir "${BUILD_DIR}"/build64
-cd "${BUILD_DIR}"/build64
-${BWRAP64} "${BUILD_DIR}"/wine/configure --enable-win64 ${WINE_BUILD_OPTIONS} --prefix "${BUILD_DIR}"/wine-${BUILD_NAME}-amd64
+cd "${BUILD_DIR}"/build64 || exit
+${BWRAP64} "${BUILD_DIR}"/wine/configure --enable-win64 ${WINE_BUILD_OPTIONS} --prefix "${BUILD_DIR}"/wine-"${BUILD_NAME}"-amd64
 ${BWRAP64} make -j$(nproc)
 ${BWRAP64} make install
 
@@ -301,8 +328,8 @@ export CROSSCFLAGS="${CROSSCFLAGS_X32}"
 export CROSSCXXFLAGS="${CROSSCFLAGS_X32}"
 
 mkdir "${BUILD_DIR}"/build32-tools
-cd "${BUILD_DIR}"/build32-tools
-${BWRAP32} "${BUILD_DIR}"/wine/configure ${WINE_BUILD_OPTIONS} --prefix "${BUILD_DIR}"/wine-${BUILD_NAME}-x86
+cd "${BUILD_DIR}"/build32-tools || exit
+PKG_CONFIG_LIBDIR=/usr/lib/i386-linux-gnu/pkgconfig:/usr/local/lib/pkgconfig ${BWRAP32} "${BUILD_DIR}"/wine/configure ${WINE_BUILD_OPTIONS} --prefix "${BUILD_DIR}"/wine-"${BUILD_NAME}"-x86
 ${BWRAP32} make -j$(nproc)
 ${BWRAP32} make install
 
@@ -312,16 +339,23 @@ export CROSSCFLAGS="${CROSSCFLAGS_X64}"
 export CROSSCXXFLAGS="${CROSSCFLAGS_X64}"
 
 mkdir "${BUILD_DIR}"/build32
-cd "${BUILD_DIR}"/build32
-${BWRAP32} "${BUILD_DIR}"/wine/configure --with-wine64="${BUILD_DIR}"/build64 --with-wine-tools="${BUILD_DIR}"/build32-tools ${WINE_BUILD_OPTIONS} --prefix "${BUILD_DIR}"/wine-${BUILD_NAME}-amd64
+cd "${BUILD_DIR}"/build32 || exit
+PKG_CONFIG_LIBDIR=/usr/lib/i386-linux-gnu/pkgconfig:/usr/local/lib/pkgconfig ${BWRAP32} "${BUILD_DIR}"/wine/configure --with-wine64="${BUILD_DIR}"/build64 --with-wine-tools="${BUILD_DIR}"/build32-tools ${WINE_BUILD_OPTIONS} --prefix "${BUILD_DIR}"/wine-${BUILD_NAME}-amd64
 ${BWRAP32} make -j$(nproc)
 ${BWRAP32} make install
 
-clear
+echo
 echo "Compilation complete"
 echo "Creating and compressing archives..."
 
-cd "${BUILD_DIR}"
+cd "${BUILD_DIR}" || exit
+
+if touch "${scriptdir}"/write_test; then
+	rm -f "${scriptdir}"/write_test
+	result_dir="${scriptdir}"
+else
+	result_dir="${HOME}"
+fi
 
 export XZ_OPT="-9 -T0"
 
@@ -334,12 +368,12 @@ for build in wine-${BUILD_NAME}-x86 wine-${BUILD_NAME}-amd64; do
 		fi
 
 		tar -Jcf "${build}".tar.xz "${build}"
-
-		mv "${build}".tar.xz "${scriptdir}"
+		mv "${build}".tar.xz "${result_dir}"
 	fi
 done
 
 rm -rf "${BUILD_DIR}"
 
-clear
+echo
 echo "Done"
+echo "The builds should be in ${result_dir}"
