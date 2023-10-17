@@ -155,4 +155,5 @@ prepare_chroot 64
 rm "${CHROOT_X64}"/opt/prepare_chroot.sh
 rm "${CHROOT_X32}"/opt/prepare_chroot.sh
 
+clear
 echo "Done"
