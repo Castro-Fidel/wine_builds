@@ -20,15 +20,16 @@ fi
 
 export scriptdir="$(dirname "$(readlink -f "${BASH_SOURCE[0]}")")"
 
-export WINE_FULL_NAME="WINE_LG_8-18"
+export WINE_FULL_NAME="PROTON_LG_8-20"
 export WINE_GECKO="2.47.3"
 export WINE_MONO="8.0.1"
-# export CUSTOM_SRC_PATH="$scriptdir"/wine-ge-custom/proton-wine/
-export CUSTOM_SRC_PATH="$scriptdir"/wine-tkg/
+export CUSTOM_SRC_PATH="$scriptdir"/wine-ge-custom/proton-wine/
+# export CUSTOM_SRC_PATH="$scriptdir"/wine-tkg/
 export BUILD_DIR="$scriptdir"/build
 export GSTR_RUNTIME_PATH="$scriptdir"/extra/
 export BOOTSTRAP_PATH=/opt/chroots_bullseye/bullseye_x86_64_chroot
 export WINE_BUILD_OPTIONS="--disable-tests --with-x --with-mingw --with-gstreamer --disable-winemenubuilder --disable-win16"
+export USE_CCACHE="true"
 
 if [ -z "${XDG_CACHE_HOME}" ]; then
 	export XDG_CACHE_HOME="${HOME}"/.cache
@@ -89,30 +90,43 @@ mkdir -p "$RESULT_DIR"
 start=$(date +%s)
 
 cd "${BUILD_DIR}" || exit 1
-${BWRAP} dlls/winevulkan/make_vulkan
-${BWRAP} tools/make_requests
-${BWRAP} autoreconf -f
+dlls/winevulkan/make_vulkan
+tools/make_requests
+autoreconf -f
 
-echo "Configuring 32 bit build"
-mkdir -p build32 && cd build32 || exit 1
-${BWRAP} env GSTREAMER_CFLAGS="-I/usr/include/gstreamer-1.0 -I/usr/include/glib-2.0 -I/usr/lib/i386-linux-gnu/glib-2.0/include -I/usr/include/i386-linux-gnu -I/usr/lib/i386-linux-gnu/gstreamer-1.0/include -I/usr/include/orc-0.4 -I/usr/include/gudev-1.0 -I/usr/include/libdrm -pthread" \
-GCRYPT_LIBS="-lgcrypt" \
-GCRYPT_CFLAGS="-I/usr/include/gcrypt.h" \
-CUPS_CFLAGS="-I/usr/include" \
-PKG_CONFIG_PATH=/usr/share/pkgconfig \
-LDFLAGS="-L${GSTR_RUNTIME_PATH}/lib32 -Wl,-O1,--sort-common,--as-needed,-rpath-link,$GSTR_RUNTIME_PATH/lib32" \
-../configure -C \
---prefix="$RESULT_DIR" \
---libdir="$RESULT_DIR"/lib \
---bindir="$RESULT_DIR"/bin \
---datadir="$RESULT_DIR"/share \
---mandir="$RESULT_DIR"/share/man \
-${WINE_BUILD_OPTIONS} || exit 1
-sleep 5
-${BWRAP} env CC="ccache gcc"\
-CROSSCC="ccache i686-w64-mingw32-gcc" \
-LD_LIBRARY_PATH=${GSTR_RUNTIME_PATH}/lib32 make install -j${NCPU}
-cd ..
+export CROSSCC_X32="i686-w64-mingw32-gcc"
+export CROSSCXX_X32="i686-w64-mingw32-g++"
+export CROSSCC_X64="x86_64-w64-mingw32-gcc"
+export CROSSCXX_X64="x86_64-w64-mingw32-g++"
+
+export CFLAGS_X32="-march=i686 -msse2 -mfpmath=sse -O2 -ftree-vectorize"
+export CFLAGS_X64="-march=x86-64 -msse3 -mfpmath=sse -O2 -ftree-vectorize"
+export LDFLAGS="-Wl,-O1,--sort-common,--as-needed"
+
+export CROSSCFLAGS_X32="${CFLAGS_X32}"
+export CROSSCFLAGS_X64="${CFLAGS_X64}"
+export CROSSLDFLAGS="${LDFLAGS}"
+
+if [ "$USE_CCACHE" = "true" ]; then
+	export CROSSCC_X32="ccache ${CROSSCC_X32}"
+	export CROSSCXX_X32="ccache ${CROSSCXX_X32}"
+	export CROSSCC_X64="ccache ${CROSSCC_X64}"
+	export CROSSCXX_X64="ccache ${CROSSCXX_X64}"
+
+	if [ -z "${XDG_CACHE_HOME}" ]; then
+		export XDG_CACHE_HOME="${HOME}"/.cache
+	fi
+
+	mkdir -p "${XDG_CACHE_HOME}"/ccache
+	mkdir -p "${HOME}"/.ccache
+fi
+
+export CROSSCC="${CROSSCC_X64}"
+export CROSSCXX="${CROSSCXX_X64}"
+export CFLAGS="${CFLAGS_X64}"
+export CXXFLAGS="${CFLAGS_X64}"
+export CROSSCFLAGS="${CROSSCFLAGS_X64}"
+export CROSSCXXFLAGS="${CROSSCFLAGS_X64}"
 
 echo "Configuring 64 bit build"
 mkdir -p build64 && cd build64 || exit 1
@@ -128,10 +142,52 @@ LDFLAGS="-L${GSTR_RUNTIME_PATH}/lib64 -Wl,-O1,--sort-common,--as-needed,-rpath-l
 --mandir="$RESULT_DIR"/share/man \
 ${WINE_BUILD_OPTIONS} || exit 1
 sleep 5
-${BWRAP} env CC="ccache gcc" \
-CROSSCC="ccache x86_64-w64-mingw32-gcc" \
-LD_LIBRARY_PATH=${GSTR_RUNTIME_PATH}/lib64 make install -j${NCPU}
+${BWRAP} env \
+LD_LIBRARY_PATH="${GSTR_RUNTIME_PATH}/lib64" \
+CC="ccache gcc-10" CXX="ccache g++-10" \
+make -j${NCPU} || exit 1
 cd ..
+
+export CROSSCC="${CROSSCC_X32}"
+export CROSSCXX="${CROSSCXX_X32}"
+export CFLAGS="${CFLAGS_X64}"
+export CXXFLAGS="${CFLAGS_X64}"
+export CROSSCFLAGS="${CROSSCFLAGS_X64}"
+export CROSSCXXFLAGS="${CROSSCFLAGS_X64}"
+
+echo "Configuring 32 bit build"
+mkdir -p build32 && cd build32 || exit 1
+${BWRAP} env GSTREAMER_CFLAGS="-I/usr/include/gstreamer-1.0 -I/usr/include/glib-2.0 -I/usr/lib/i386-linux-gnu/glib-2.0/include -I/usr/include/i386-linux-gnu -I/usr/lib/i386-linux-gnu/gstreamer-1.0/include -I/usr/include/orc-0.4 -I/usr/include/gudev-1.0 -I/usr/include/libdrm -pthread" \
+GCRYPT_LIBS="-lgcrypt" \
+GCRYPT_CFLAGS="-I/usr/include/gcrypt.h" \
+CUPS_CFLAGS="-I/usr/include" \
+PKG_CONFIG_PATH=/usr/share/pkgconfig \
+LDFLAGS="-L${GSTR_RUNTIME_PATH}/lib32 -Wl,-O1,--sort-common,--as-needed,-rpath-link,$GSTR_RUNTIME_PATH/lib32" \
+../configure -C \
+--with-wine64=../build64 \
+--prefix="$RESULT_DIR" \
+--libdir="$RESULT_DIR"/lib \
+--bindir="$RESULT_DIR"/bin \
+--datadir="$RESULT_DIR"/share \
+--mandir="$RESULT_DIR"/share/man \
+${WINE_BUILD_OPTIONS} || exit 1
+sleep 5
+${BWRAP} env \
+LD_LIBRARY_PATH="${GSTR_RUNTIME_PATH}/lib32" \
+CC="ccache gcc-10" CXX="ccache g++-10" \
+make -j${NCPU} || exit 1
+cd ..
+
+${BWRAP} env \
+LD_LIBRARY_PATH=${GSTR_RUNTIME_PATH}/lib32 \
+CC="ccache gcc-10" CXX="ccache g++-10" \
+make -j${NCPU} -C build32 install-lib || exit 1
+
+
+${BWRAP} env \
+LD_LIBRARY_PATH=${GSTR_RUNTIME_PATH}/lib64 \
+CC="ccache gcc-10" CXX="ccache g++-10" \
+make -j${NCPU} -C build64 install-lib || exit 1
 
 echo "Stripping build"
 find "$RESULT_DIR"/bin -type f -exec strip {} \;
@@ -145,9 +201,6 @@ for _f in "$RESULT_DIR"/{bin,lib,lib64}/{wine/{x86_64-unix,x86_64-windows,i386-u
 		strip --strip-unneeded "$_f" || true
 	fi
 done
-
-echo "Removing static libraries"
-rm -f "$RESULT_DIR"/lib*/wine/*/*.a 2>/dev/null
 
 echo "$WINE_FULL_NAME" > "$RESULT_DIR"/version
 
