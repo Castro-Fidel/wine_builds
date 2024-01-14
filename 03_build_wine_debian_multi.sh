@@ -20,16 +20,23 @@ fi
 
 export scriptdir="$(dirname "$(readlink -f "${BASH_SOURCE[0]}")")"
 
-export WINE_FULL_NAME="PROTON_LG_8-20"
-export WINE_GECKO="2.47.3"
-export WINE_MONO="8.0.1"
-export CUSTOM_SRC_PATH="$scriptdir"/wine-ge-custom/proton-wine/
+export WINE_FULL_NAME="PROTON_LG_8-25-2"
+export CUSTOM_SRC_PATH="$scriptdir"/proton-wine/
 # export CUSTOM_SRC_PATH="$scriptdir"/wine-tkg/
 export BUILD_DIR="$scriptdir"/build
 export GSTR_RUNTIME_PATH="$scriptdir"/extra/
 export BOOTSTRAP_PATH=/opt/chroots_bullseye/bullseye_x86_64_chroot
 export WINE_BUILD_OPTIONS="--disable-tests --with-x --with-mingw --with-gstreamer --disable-winemenubuilder --disable-win16"
 export USE_CCACHE="true"
+
+export WINE_GECKO=$(grep "#define GECKO_VERSION" "$CUSTOM_SRC_PATH/dlls/appwiz.cpl/addons.c" | awk -F\" '{print $2}')
+export WINE_MONO=$(grep "#define MONO_VERSION" "$CUSTOM_SRC_PATH/dlls/appwiz.cpl/addons.c" | awk -F\" '{print $2}')
+
+echo "WINE_FULL_NAME=$WINE_FULL_NAME"
+echo "WINE_MONO=$WINE_MONO"
+echo "WINE_GECKO=$WINE_GECKO"
+echo "CUSTOM_SRC_PATH=$CUSTOM_SRC_PATH"
+sleep 3
 
 if [ -z "${XDG_CACHE_HOME}" ]; then
 	export XDG_CACHE_HOME="${HOME}"/.cache
@@ -90,9 +97,9 @@ mkdir -p "$RESULT_DIR"
 start=$(date +%s)
 
 cd "${BUILD_DIR}" || exit 1
-dlls/winevulkan/make_vulkan
-tools/make_requests
-autoreconf -f
+# dlls/winevulkan/make_vulkan
+# tools/make_requests
+# autoreconf -f
 
 export CROSSCC_X32="i686-w64-mingw32-gcc"
 export CROSSCXX_X32="i686-w64-mingw32-g++"
@@ -179,13 +186,13 @@ make -j${NCPU} || exit 1
 cd ..
 
 ${BWRAP} env \
-LD_LIBRARY_PATH=${GSTR_RUNTIME_PATH}/lib32 \
+LD_LIBRARY_PATH="${GSTR_RUNTIME_PATH}/lib32" \
 CC="ccache gcc-10" CXX="ccache g++-10" \
 make -j${NCPU} -C build32 install-lib || exit 1
 
 
 ${BWRAP} env \
-LD_LIBRARY_PATH=${GSTR_RUNTIME_PATH}/lib64 \
+LD_LIBRARY_PATH="${GSTR_RUNTIME_PATH}/lib64" \
 CC="ccache gcc-10" CXX="ccache g++-10" \
 make -j${NCPU} -C build64 install-lib || exit 1
 
@@ -211,6 +218,9 @@ cp -R "${GSTR_RUNTIME_PATH}"/lib64/* "$RESULT_DIR"/lib64/
 echo "Copying 32 bit runtime libraries to build"
 #copy sdl2, faudio, vkd3d, and ffmpeg libraries
 cp -R "${GSTR_RUNTIME_PATH}"/lib32/* "$RESULT_DIR"/lib/
+
+echo "Copying proton fonts to build"
+cp -R ${GSTR_RUNTIME_PATH}/proton-fonts "$RESULT_DIR"/share/fonts
 
 echo "Cleaning include files from build"
 rm -rf "$RESULT_DIR"/include
