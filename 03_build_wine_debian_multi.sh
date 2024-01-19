@@ -20,9 +20,12 @@ fi
 
 export scriptdir="$(dirname "$(readlink -f "${BASH_SOURCE[0]}")")"
 
-export WINE_FULL_NAME="PROTON_LG_8-25-2"
-export CUSTOM_SRC_PATH="$scriptdir"/proton-wine/
-# export CUSTOM_SRC_PATH="$scriptdir"/wine-tkg/
+export WINE_FULL_NAME="WINE_LG_9-0"
+if echo $WINE_FULL_NAME | grep PROTON_LG ; then
+	export CUSTOM_SRC_PATH="$scriptdir"/proton-wine/
+elif echo $WINE_FULL_NAME | grep WINE_LG ; then
+	export CUSTOM_SRC_PATH="$scriptdir"/wine-tkg/
+fi
 export BUILD_DIR="$scriptdir"/build
 export GSTR_RUNTIME_PATH="$scriptdir"/extra/
 export BOOTSTRAP_PATH=/opt/chroots_bullseye/bullseye_x86_64_chroot

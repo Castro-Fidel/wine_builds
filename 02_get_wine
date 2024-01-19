@@ -1,0 +1,24 @@
+#!/bin/bash
+
+cd "$(dirname "`readlink -f "$0"`")"
+export SCRIPTS_PATH="$(pwd)"
+
+if [[ $1 == tkg ]] ; then
+    git clone https://github.com/Kron4ek/wine-tkg "${SCRIPTS_PATH}/wine-tkg/"
+    pushd "${SCRIPTS_PATH}/wine-tkg/"
+elif [[ $1 == proton ]] ; then
+    git clone --branch Proton8-25 --recurse-submodules https://github.com/GloriousEggroll/proton-wine.git
+    pushd "${SCRIPTS_PATH}/proton-wine/"
+else
+    echo "Use: 02_get_wine < tkg | proton >"
+    exit 0
+fi
+
+echo "adding reverse 01-WINE_for_PortProton"
+
+echo "WINE for PP"
+patch -RNp1 < ../patches/01-WINE_for_PortProton.patch
+# patch -Np0 < ../patches/proton-exp-8.0.patch
+
+popd
+${SCRIPTS_PATH}/03_build_wine_debian_multi.sh
