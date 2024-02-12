@@ -20,9 +20,9 @@ fi
 
 export scriptdir="$(dirname "$(readlink -f "${BASH_SOURCE[0]}")")"
 
-export WINE_FULL_NAME="WINE_LG_9-0"
+export WINE_FULL_NAME="PROTON_LG_8-28"
 if echo $WINE_FULL_NAME | grep PROTON_LG ; then
-	export CUSTOM_SRC_PATH="$scriptdir"/proton-wine/
+	export CUSTOM_SRC_PATH="$scriptdir"/wine/
 elif echo $WINE_FULL_NAME | grep WINE_LG ; then
 	export CUSTOM_SRC_PATH="$scriptdir"/wine-tkg/
 fi
@@ -100,9 +100,9 @@ mkdir -p "$RESULT_DIR"
 start=$(date +%s)
 
 cd "${BUILD_DIR}" || exit 1
-# dlls/winevulkan/make_vulkan
-# tools/make_requests
-# autoreconf -f
+# ${BWRAP} dlls/winevulkan/make_vulkan
+# ${BWRAP} tools/make_requests
+${BWRAP} autoreconf -f
 
 export CROSSCC_X32="i686-w64-mingw32-gcc"
 export CROSSCXX_X32="i686-w64-mingw32-g++"

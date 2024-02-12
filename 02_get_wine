@@ -14,6 +14,8 @@ else
     exit 0
 fi
 
+# git clone --recurse-submodules --depth 1 --branch GE-Proton8-28 https://github.com/GloriousEggroll/proton-ge-custom.git
+
 echo "adding reverse 01-WINE_for_PortProton"
 
 echo "WINE for PP"
@@ -21,4 +23,4 @@ patch -RNp1 < ../patches/01-WINE_for_PortProton.patch
 # patch -Np0 < ../patches/proton-exp-8.0.patch
 
 popd
-${SCRIPTS_PATH}/03_build_wine_debian_multi.sh
+# ${SCRIPTS_PATH}/03_build_wine_debian_multi.sh
