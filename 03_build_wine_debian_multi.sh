@@ -20,7 +20,7 @@ fi
 
 export scriptdir="$(dirname "$(readlink -f "${BASH_SOURCE[0]}")")"
 
-export WINE_FULL_NAME="PROTON_LG_8-28"
+export WINE_FULL_NAME="WINE_LG_9-2"
 if echo $WINE_FULL_NAME | grep PROTON_LG ; then
 	export CUSTOM_SRC_PATH="$scriptdir"/wine/
 elif echo $WINE_FULL_NAME | grep WINE_LG ; then
@@ -29,7 +29,7 @@ fi
 export BUILD_DIR="$scriptdir"/build
 export GSTR_RUNTIME_PATH="$scriptdir"/extra/
 export BOOTSTRAP_PATH=/opt/chroots_bullseye/bullseye_x86_64_chroot
-export WINE_BUILD_OPTIONS="--disable-tests --with-x --with-mingw --with-gstreamer --disable-winemenubuilder --disable-win16"
+export WINE_BUILD_OPTIONS="--disable-tests --with-x --with-mingw --with-gstreamer --disable-winemenubuilder --disable-win16 --disable-year2038"
 export USE_CCACHE="true"
 
 export WINE_GECKO=$(grep "#define GECKO_VERSION" "$CUSTOM_SRC_PATH/dlls/appwiz.cpl/addons.c" | awk -F\" '{print $2}')
@@ -102,7 +102,7 @@ start=$(date +%s)
 cd "${BUILD_DIR}" || exit 1
 # ${BWRAP} dlls/winevulkan/make_vulkan
 # ${BWRAP} tools/make_requests
-${BWRAP} autoreconf -f
+# ${BWRAP} autoreconf -f
 
 export CROSSCC_X32="i686-w64-mingw32-gcc"
 export CROSSCXX_X32="i686-w64-mingw32-g++"
