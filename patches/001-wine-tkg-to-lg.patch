@@ -1,0 +1,463 @@
+diff --git a/configure b/configure
+index 0f26e576..d74e081d 100755
+--- a/configure
++++ b/configure
+@@ -1722,7 +1722,6 @@ enable_wineconsole
+ enable_winedbg
+ enable_winedevice
+ enable_winefile
+-enable_winemenubuilder
+ enable_winemine
+ enable_winemsibuilder
+ enable_winepath
+@@ -24105,7 +24104,6 @@ wine_fn_config_makefile programs/wineconsole enable_wineconsole
+ wine_fn_config_makefile programs/winedbg enable_winedbg
+ wine_fn_config_makefile programs/winedevice enable_winedevice
+ wine_fn_config_makefile programs/winefile enable_winefile
+-wine_fn_config_makefile programs/winemenubuilder enable_winemenubuilder
+ wine_fn_config_makefile programs/winemine enable_winemine
+ wine_fn_config_makefile programs/winemsibuilder enable_winemsibuilder
+ wine_fn_config_makefile programs/winepath enable_winepath
+@@ -24257,7 +24255,7 @@ maintainer-clean::
+ 
+ as_fn_append wine_rules "
+ dlls/ntdll/unix/version.c: dummy
+-	@version=\`(echo \"wine-9.2.r0.gdc3b4e65\") | sed -n -e '\$\$s/\(.*\)/const char wine_build[] = \"\\1  ( TkG Staging Esync Fsync )\";/p'\` && (echo \$\$version | cmp -s - \$@) || echo \$\$version >\$@ || (rm -f \$@ && exit 1)
++	@version=\`(echo \"wine-9.2.r0.gdc3b4e65\") | sed -n -e '\$\$s/\(.*\)/const char wine_build[] = \"\\1  ( LG )\";/p'\` && (echo \$\$version | cmp -s - \$@) || echo \$\$version >\$@ || (rm -f \$@ && exit 1)
+ programs/winetest/build.rc: dummy
+ 	@build=\"STRINGTABLE { 1 \\\"\`GIT_DIR=${wine_srcdir}.git git rev-parse HEAD 2>/dev/null\`\\\" }\" && (echo \$\$build | cmp -s - \$@) || echo \$\$build >\$@ || (rm -f \$@ && exit 1)
+ programs/winetest/build.nfo:
+diff --git a/configure.ac b/configure.ac
+index 4735d5d7..8ccd33bc 100644
+--- a/configure.ac
++++ b/configure.ac
+@@ -3533,7 +3533,6 @@ WINE_CONFIG_MAKEFILE(programs/wineconsole)
+ WINE_CONFIG_MAKEFILE(programs/winedbg)
+ WINE_CONFIG_MAKEFILE(programs/winedevice)
+ WINE_CONFIG_MAKEFILE(programs/winefile)
+-WINE_CONFIG_MAKEFILE(programs/winemenubuilder)
+ WINE_CONFIG_MAKEFILE(programs/winemine)
+ WINE_CONFIG_MAKEFILE(programs/winemsibuilder)
+ WINE_CONFIG_MAKEFILE(programs/winepath)
+@@ -3718,7 +3717,7 @@ dnl Rules for generated source files
+ 
+ WINE_APPEND_RULE(
+ [dlls/ntdll/unix/version.c: dummy
+-	@version=\`(echo \"wine-9.2.r0.gdc3b4e65\") | sed -n -e '\$\$s/\(.*\)/const char wine_build[[]] = \"\\1  ( TkG Staging Esync Fsync )\";/p'\` && (echo \$\$version | cmp -s - \$[@]) || echo \$\$version >\$[@] || (rm -f \$[@] && exit 1)
++	@version=\`(echo \"wine-9.2.r0.gdc3b4e65\") | sed -n -e '\$\$s/\(.*\)/const char wine_build[[]] = \"\\1  ( LG )\";/p'\` && (echo \$\$version | cmp -s - \$[@]) || echo \$\$version >\$[@] || (rm -f \$[@] && exit 1)
+ programs/winetest/build.rc: dummy
+ 	@build=\"STRINGTABLE { 1 \\\"\`GIT_DIR=${wine_srcdir}.git git rev-parse HEAD 2>/dev/null\`\\\" }\" && (echo \$\$build | cmp -s - \$[@]) || echo \$\$build >\$[@] || (rm -f \$[@] && exit 1)
+ programs/winetest/build.nfo:
+diff --git a/dlls/advapi32/advapi.c b/dlls/advapi32/advapi.c
+index 2284e92b..127cec57 100644
+--- a/dlls/advapi32/advapi.c
++++ b/dlls/advapi32/advapi.c
+@@ -44,14 +44,15 @@ WINE_DEFAULT_DEBUG_CHANNEL(advapi);
+  */
+ BOOL WINAPI GetUserNameA( LPSTR name, LPDWORD size )
+ {
+-    DWORD len = GetEnvironmentVariableA( "WINEUSERNAME", name, *size );
+-    BOOL ret;
+-
+-    if (!len) return FALSE;
+-    if ((ret = (len < *size))) len++;
+-    else SetLastError( ERROR_INSUFFICIENT_BUFFER );
+-    *size = len;
+-    return ret;
++    static const char steamuserA[] = {'s','t','e','a','m','u','s','e','r',0};
++    if(*size < ARRAY_SIZE(steamuserA)){
++        SetLastError( ERROR_INSUFFICIENT_BUFFER );
++        *size = ARRAY_SIZE(steamuserA);
++        return FALSE;
++    }
++    memcpy(name, steamuserA, sizeof(steamuserA));
++    *size = ARRAY_SIZE(steamuserA);
++    return TRUE;
+ }
+ 
+ /******************************************************************************
+@@ -59,14 +60,15 @@ BOOL WINAPI GetUserNameA( LPSTR name, LPDWORD size )
+  */
+ BOOL WINAPI GetUserNameW( LPWSTR name, LPDWORD size )
+ {
+-    DWORD len = GetEnvironmentVariableW( L"WINEUSERNAME", name, *size );
+-    BOOL ret;
+-
+-    if (!len) return FALSE;
+-    if ((ret = (len < *size))) len++;
+-    else SetLastError( ERROR_INSUFFICIENT_BUFFER );
+-    *size = len;
+-    return ret;
++    static const WCHAR steamuserW[] = {'s','t','e','a','m','u','s','e','r',0};
++    if(*size < ARRAY_SIZE(steamuserW)){
++        SetLastError( ERROR_INSUFFICIENT_BUFFER );
++        *size = ARRAY_SIZE(steamuserW);
++        return FALSE;
++    }
++    memcpy(name, steamuserW, sizeof(steamuserW));
++    *size = ARRAY_SIZE(steamuserW);
++    return TRUE;
+ }
+ 
+ /******************************************************************************
+diff --git a/dlls/ntdll/loader.c b/dlls/ntdll/loader.c
+index b2ebb3d8..d35a87c3 100644
+--- a/dlls/ntdll/loader.c
++++ b/dlls/ntdll/loader.c
+@@ -4465,11 +4465,11 @@ void loader_init( CONTEXT *context, void **entry )
+     InitializeObjectAttributes( &staging_event_attr, &staging_event_string, OBJ_OPENIF, NULL, NULL );
+     if (NtCreateEvent( &staging_event, EVENT_ALL_ACCESS, &staging_event_attr, NotificationEvent, FALSE ) == STATUS_SUCCESS)
+     {
+-        FIXME_(winediag)("Wine TkG (staging) %s is a testing version containing experimental patches.\n", wine_get_version());
++        FIXME_(winediag)("Wine LG %s is a testing version containing experimental patches.\n", wine_get_version());
+         FIXME_(winediag)("Please don't report bugs about it on winehq.org and use https://github.com/Frogging-Family/wine-tkg-git/issues instead.\n");
+     }
+     else
+-        WARN_(winediag)("Wine TkG (staging) %s is a testing version containing experimental patches.\n", wine_get_version());
++        WARN_(winediag)("Wine LG (staging) %s is a testing version containing experimental patches.\n", wine_get_version());
+ 
+     RtlAcquirePebLock();
+     InsertHeadList( &tls_links, &NtCurrentTeb()->TlsLinks );
+diff --git a/dlls/shell32/shellpath.c b/dlls/shell32/shellpath.c
+index 015d7cdd..76b294a4 100644
+--- a/dlls/shell32/shellpath.c
++++ b/dlls/shell32/shellpath.c
+@@ -2638,181 +2638,6 @@ end:
+      debugstr_w(szSrc), debugstr_w(szDest));
+     return hr;
+ }
+-
+-static char *xdg_config;
+-static DWORD xdg_config_len;
+-
+-static BOOL WINAPI init_xdg_dirs( INIT_ONCE *once, void *param, void **context )
+-{
+-    const WCHAR *var, *fmt = L"\\??\\unix%s/user-dirs.dirs";
+-    char *p;
+-    WCHAR *name, *ptr;
+-    HANDLE file;
+-    DWORD len;
+-
+-    if (!(var = _wgetenv( L"XDG_CONFIG_HOME" )) || var[0] != '/')
+-    {
+-        if (!(var = _wgetenv( L"WINEHOMEDIR" ))) return TRUE;
+-        fmt = L"%s/.config/user-dirs.dirs";
+-    }
+-    len = lstrlenW(var) + lstrlenW(fmt);
+-    name = malloc( len * sizeof(WCHAR) );
+-    swprintf( name, len, fmt, var );
+-    name[1] = '\\';  /* change \??\ to \\?\ */
+-    for (ptr = name; *ptr; ptr++) if (*ptr == '/') *ptr = '\\';
+-
+-    file = CreateFileW( name, GENERIC_READ, FILE_SHARE_READ, NULL, OPEN_EXISTING, 0, 0 );
+-    free( name );
+-    if (file != INVALID_HANDLE_VALUE)
+-    {
+-        len = GetFileSize( file, NULL );
+-        if (!(xdg_config = malloc( len + 1 ))) return TRUE;
+-        if (!ReadFile( file, xdg_config, len, &xdg_config_len, NULL ))
+-        {
+-            free( xdg_config );
+-            xdg_config = NULL;
+-        }
+-        else
+-        {
+-            for (p = xdg_config; p < xdg_config + xdg_config_len; p++) if (*p == '\n') *p = 0;
+-            *p = 0;  /* append null to simplify string parsing */
+-        }
+-        CloseHandle( file );
+-    }
+-    return TRUE;
+-}
+-
+-static char *get_xdg_path( const char *var )
+-{
+-    static INIT_ONCE once;
+-    char *p, *ret = NULL;
+-    int i;
+-
+-    InitOnceExecuteOnce( &once, init_xdg_dirs, NULL, NULL );
+-    if (!xdg_config) return NULL;
+-
+-    for (p = xdg_config; p < xdg_config + xdg_config_len; p += strlen(p) + 1)
+-    {
+-        while (*p == ' ' || *p == '\t') p++;
+-        if (strncmp( p, var, strlen(var) )) continue;
+-        p += strlen(var);
+-        while (*p == ' ' || *p == '\t') p++;
+-        if (*p != '=') continue;
+-        p++;
+-        while (*p == ' ' || *p == '\t') p++;
+-        if (*p != '"') continue;
+-        p++;
+-        if (*p != '/' && strncmp( p, "$HOME/", 6 )) continue;
+-
+-        if (!(ret = malloc( strlen(p) + 1 ))) break;
+-        for (i = 0; *p && *p != '"'; i++, p++)
+-        {
+-            if (*p == '\\' && p[1]) p++;
+-            ret[i] = *p;
+-        }
+-        ret[i] = 0;
+-        if (*p != '"')
+-        {
+-            free( ret );
+-            ret = NULL;
+-        }
+-        break;
+-    }
+-    return ret;
+-}
+-
+-static BOOL link_folder( HANDLE mgr, const UNICODE_STRING *path, const char *link )
+-{
+-    struct mountmgr_shell_folder *ioctl;
+-    DWORD len = sizeof(*ioctl) + path->Length + strlen(link) + 1;
+-    BOOL ret;
+-
+-    if (!(ioctl = malloc( len ))) return FALSE;
+-    ioctl->create_backup = FALSE;
+-    ioctl->folder_offset = sizeof(*ioctl);
+-    ioctl->folder_size = path->Length;
+-    memcpy( (char *)ioctl + ioctl->folder_offset, path->Buffer, ioctl->folder_size );
+-    ioctl->symlink_offset = ioctl->folder_offset + ioctl->folder_size;
+-    strcpy( (char *)ioctl + ioctl->symlink_offset, link );
+-
+-    ret = DeviceIoControl( mgr, IOCTL_MOUNTMGR_DEFINE_SHELL_FOLDER, ioctl, len, NULL, 0, NULL, NULL );
+-    free( ioctl );
+-    return ret;
+-}
+-
+-/******************************************************************************
+- * create_link
+- *
+- * Sets up a symbolic link for one of the 'My Whatever' shell folders to point
+- * into the corresponding XDG directory.
+- */
+-static void create_link( const WCHAR *path, const char *xdg_name, const char *default_name )
+-{
+-    UNICODE_STRING nt_name;
+-    char *target = NULL;
+-    HANDLE mgr;
+-
+-    if ((mgr = CreateFileW( MOUNTMGR_DOS_DEVICE_NAME, GENERIC_READ | GENERIC_WRITE,
+-                            FILE_SHARE_READ | FILE_SHARE_WRITE, NULL, OPEN_EXISTING,
+-                            0, 0 )) == INVALID_HANDLE_VALUE)
+-    {
+-        FIXME( "failed to connect to mount manager\n" );
+-        return;
+-    }
+-
+-    nt_name.Buffer = NULL;
+-    if (!RtlDosPathNameToNtPathName_U( path, &nt_name, NULL, NULL )) goto done;
+-
+-    if ((target = get_xdg_path( xdg_name )))
+-    {
+-        if (link_folder( mgr, &nt_name, target )) goto done;
+-    }
+-    link_folder( mgr, &nt_name, default_name );
+-
+-done:
+-    RtlFreeUnicodeString( &nt_name );
+-    free( target );
+-    CloseHandle( mgr );
+-}
+-
+-/******************************************************************************
+- * _SHCreateSymbolicLink  [Internal]
+- *
+- * Sets up a symbolic link for one of the special shell folders to point into
+- * the users home directory.
+- *
+- * PARAMS
+- *  nFolder [I] CSIDL identifying the folder.
+- */
+-static void _SHCreateSymbolicLink(int nFolder, const WCHAR *path)
+-{
+-    DWORD folder = nFolder & CSIDL_FOLDER_MASK;
+-
+-    switch (folder) {
+-        case CSIDL_PERSONAL:
+-            create_link( path, "XDG_DOCUMENTS_DIR", "$HOME/Documents" );
+-            break;
+-        case CSIDL_DESKTOPDIRECTORY:
+-            create_link( path, "XDG_DESKTOP_DIR", "$HOME/Desktop" );
+-            break;
+-        case CSIDL_MYPICTURES:
+-            create_link( path, "XDG_PICTURES_DIR", "$HOME/Pictures" );
+-            break;
+-        case CSIDL_MYVIDEO:
+-            create_link( path, "XDG_VIDEOS_DIR", "$HOME/Movies" );
+-            break;
+-        case CSIDL_MYMUSIC:
+-            create_link( path, "XDG_MUSIC_DIR", "$HOME/Music" );
+-            break;
+-        case CSIDL_DOWNLOADS:
+-            create_link( path, "XDG_DOWNLOAD_DIR", "$HOME/Downloads" );
+-            break;
+-        case CSIDL_TEMPLATES:
+-            create_link( path, "XDG_TEMPLATES_DIR", "$HOME/Templates" );
+-            break;
+-    }
+-}
+-
+ /******************************************************************************
+  * SHGetFolderPathW			[SHELL32.@]
+  *
+@@ -3001,10 +2826,6 @@ HRESULT WINAPI SHGetFolderPathAndSubDirW(
+         goto end;
+     }
+ 
+-    /* create symbolic links rather than directories for specific
+-     * user shell folders */
+-    _SHCreateSymbolicLink(folder, szBuildPath);
+-
+     /* create directory/directories */
+     ret = SHCreateDirectoryExW(hwndOwner, szBuildPath, NULL);
+     if (ret && ret != ERROR_ALREADY_EXISTS)
+diff --git a/loader/wine.inf.in b/loader/wine.inf.in
+index ef990d3c..efda1815 100644
+--- a/loader/wine.inf.in
++++ b/loader/wine.inf.in
+@@ -72,7 +72,8 @@ AddReg=\
+     SessionMgr,\
+     Tapi,\
+     ThemeManager,\
+-    LicenseInformation
++    LicenseInformation, \
++    ProtonOverrides
+ 
+ [DefaultInstall.NT]
+ RegisterDlls=RegisterDllsSection
+@@ -97,7 +98,8 @@ AddReg=\
+     Tapi,\
+     ThemeManager,\
+     VersionInfo,\
+-    LicenseInformation
++    LicenseInformation, \
++    ProtonOverrides
+ 
+ [DefaultInstall.ntamd64]
+ RegisterDlls=RegisterDllsSection
+@@ -123,7 +125,8 @@ AddReg=\
+     Tapi,\
+     ThemeManager,\
+     VersionInfo,\
+-    LicenseInformation
++    LicenseInformation, \
++    ProtonOverrides
+ 
+ [DefaultInstall.ntarm64]
+ RegisterDlls=RegisterDllsSection
+@@ -148,7 +151,8 @@ AddReg=\
+     Tapi,\
+     ThemeManager,\
+     VersionInfo,\
+-    LicenseInformation
++    LicenseInformation, \
++    ProtonOverrides
+ 
+ [Wow64Install.ntx86]
+ RegisterDlls=RegisterDllsSection
+@@ -164,7 +168,8 @@ AddReg=\
+     Misc,\
+     Tapi,\
+     VersionInfo,\
+-    LicenseInformation
++    LicenseInformation, \
++    ProtonOverrides
+ 
+ [Wow64Install.ntarm]
+ RegisterDlls=RegisterDllsSection
+@@ -179,7 +184,8 @@ AddReg=\
+     Misc,\
+     Tapi,\
+     VersionInfo,\
+-    LicenseInformation
++    LicenseInformation, \
++    ProtonOverrides
+ 
+ [DefaultInstall.Services]
+ AddService=BITS,0,BITSService
+@@ -446,6 +452,7 @@ HKLM,%CurrentVersionNT%\AeDebug,"Debugger",2,"winedbg --auto %ld %ld"
+ HKLM,%CurrentVersionNT%\AeDebug,"Auto",2,"1"
+ HKCU,Software\Wine\Debug,"RelayExclude",2,"ntdll.RtlEnterCriticalSection;ntdll.RtlTryEnterCriticalSection;ntdll.RtlLeaveCriticalSection;kernel32.48;kernel32.49;kernel32.94;kernel32.95;kernel32.96;kernel32.97;kernel32.98;kernel32.TlsGetValue;kernel32.TlsSetValue;kernel32.FlsGetValue;kernel32.FlsSetValue;kernel32.SetLastError"
+ HKCU,Software\Wine\Debug,"RelayFromExclude",2,"winex11.drv;winemac.drv;user32;gdi32;advapi32;kernel32"
++HKCU,Software\Wine\WineDbg,"ShowCrashDialog",0x00010003,0x00000000
+ 
+ [DirectX]
+ HKLM,Software\Microsoft\DirectX,"Version",,"4.09.00.0904"
+@@ -2422,7 +2429,6 @@ HKLM,%CurrentVersion%\Telephony\Country List\998,"SameAreaRule",,"G"
+ 11,,conhost.exe,-
+ 11,,services.exe,-
+ 11,,spoolsv.exe,-
+-11,,winemenubuilder.exe,-
+ ; registration order matters for these
+ 11,,msxml.dll
+ 11,,msxml2.dll
+@@ -2747,7 +2753,6 @@ StartType=3
+ ErrorControl=1
+ 
+ [Services]
+-HKLM,%CurrentVersion%\RunServices,"winemenubuilder",2,"%11%\winemenubuilder.exe -a -r"
+ HKLM,"System\CurrentControlSet\Services\Eventlog\Application",,16
+ HKLM,"System\CurrentControlSet\Services\Eventlog\System","Sources",0x10000,""
+ HKLM,"System\CurrentControlSet\Services\Tcpip\Parameters","DataBasePath",,"%12%\etc"
+diff --git a/programs/wineboot/wineboot.c b/programs/wineboot/wineboot.c
+index e217eaf3..7f4bbadb 100644
+--- a/programs/wineboot/wineboot.c
++++ b/programs/wineboot/wineboot.c
+@@ -1534,37 +1534,6 @@ static BOOL start_services_process(void)
+     return TRUE;
+ }
+ 
+-static INT_PTR CALLBACK wait_dlgproc( HWND hwnd, UINT msg, WPARAM wp, LPARAM lp )
+-{
+-    switch (msg)
+-    {
+-    case WM_INITDIALOG:
+-        {
+-            DWORD len;
+-            WCHAR *buffer, text[1024];
+-            const WCHAR *name = (WCHAR *)lp;
+-            HICON icon = LoadImageW( 0, (LPCWSTR)IDI_WINLOGO, IMAGE_ICON, 48, 48, LR_SHARED );
+-            SendDlgItemMessageW( hwnd, IDC_WAITICON, STM_SETICON, (WPARAM)icon, 0 );
+-            SendDlgItemMessageW( hwnd, IDC_WAITTEXT, WM_GETTEXT, 1024, (LPARAM)text );
+-            len = lstrlenW(text) + lstrlenW(name) + 1;
+-            buffer = malloc( len * sizeof(WCHAR) );
+-            swprintf( buffer, len, text, name );
+-            SendDlgItemMessageW( hwnd, IDC_WAITTEXT, WM_SETTEXT, 0, (LPARAM)buffer );
+-            free( buffer );
+-        }
+-        break;
+-    }
+-    return 0;
+-}
+-
+-static HWND show_wait_window(void)
+-{
+-    HWND hwnd = CreateDialogParamW( GetModuleHandleW(0), MAKEINTRESOURCEW(IDD_WAITDLG), 0,
+-                                    wait_dlgproc, (LPARAM)prettyprint_configdir() );
+-    ShowWindow( hwnd, SW_SHOWNORMAL );
+-    return hwnd;
+-}
+-
+ static HANDLE start_rundll32( const WCHAR *inf_path, const WCHAR *install, WORD machine )
+ {
+     WCHAR app[MAX_PATH + ARRAY_SIZE(L"\\rundll32.exe" )];
+@@ -1752,7 +1721,6 @@ static void update_wineprefix( BOOL force )
+ 
+         if ((process = start_rundll32( inf_path, L"PreInstall", IMAGE_FILE_MACHINE_TARGET_HOST )))
+         {
+-            HWND hwnd = show_wait_window();
+             for (;;)
+             {
+                 if (process)
+@@ -1773,7 +1741,6 @@ static void update_wineprefix( BOOL force )
+                     process = start_rundll32( inf_path, L"Wow64Install", machines[count].Machine );
+                 count++;
+             }
+-            DestroyWindow( hwnd );
+         }
+         install_root_pnp_devices();
+         update_user_profile();

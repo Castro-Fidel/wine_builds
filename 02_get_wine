@@ -19,7 +19,7 @@ fi
 echo "adding reverse 01-WINE_for_PortProton"
 
 echo "WINE for PP"
-patch -RNp1 < ../patches/01-WINE_for_PortProton.patch
+patch -Np1 < ../patches/001-wine-tkg-to-lg.patch
 # patch -Np0 < ../patches/proton-exp-8.0.patch
 
 popd
