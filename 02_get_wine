@@ -5,22 +5,22 @@ export SCRIPTS_PATH="$(pwd)"
 
 if [[ $1 == tkg ]] ; then
     git clone https://github.com/Kron4ek/wine-tkg "${SCRIPTS_PATH}/wine-tkg/"
-    pushd "${SCRIPTS_PATH}/wine-tkg/"
-elif [[ $1 == proton ]] ; then
-    git clone --branch Proton8-25 --recurse-submodules https://github.com/GloriousEggroll/proton-wine.git
-    pushd "${SCRIPTS_PATH}/proton-wine/"
+    cd "${SCRIPTS_PATH}/wine-tkg/"
+    echo "adding 001-wine-tkg-to-lg patches"
+    patch -Np1 < ../patches/001-wine-tkg-to-lg.patch
+    sed -i "s/TkG Staging Esync Fsync/LG/g" configure
+    sed -i "s/TkG Staging Esync Fsync/LG/g" configure.ac
+elif [[ $1 == ge ]] ; then
+    git clone --recurse-submodules https://github.com/GloriousEggroll/proton-ge-custom.git
+    git fetch --tags
+    git checkout tags/GE-Proton9-2
+    cd "${SCRIPTS_PATH}/proton-ge-custom/wine/"
+#     echo "01-De-steamify-proton-s-WINE_for_PortProton patches"
+#     patch -Np1 < ../../patches/01-De-steamify-proton-s-WINE_for_PortProton.patch
 else
     echo "Use: 02_get_wine < tkg | proton >"
     exit 0
 fi
 
-# git clone --recurse-submodules --depth 1 --branch GE-Proton8-28 https://github.com/GloriousEggroll/proton-ge-custom.git
-
-echo "adding reverse 01-WINE_for_PortProton"
-
-echo "WINE for PP"
-patch -Np1 < ../patches/001-wine-tkg-to-lg.patch
-# patch -Np0 < ../patches/proton-exp-8.0.patch
-
-popd
+cd ${SCRIPTS_PATH}
 # ${SCRIPTS_PATH}/03_build_wine_debian_multi.sh

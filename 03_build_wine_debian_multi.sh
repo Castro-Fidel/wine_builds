@@ -20,7 +20,7 @@ fi
 
 export scriptdir="$(dirname "$(readlink -f "${BASH_SOURCE[0]}")")"
 
-export WINE_FULL_NAME="WINE_LG_9-2"
+export WINE_FULL_NAME="WINE_LG_9-7"
 if echo $WINE_FULL_NAME | grep PROTON_LG ; then
 	export CUSTOM_SRC_PATH="$scriptdir"/wine/
 elif echo $WINE_FULL_NAME | grep WINE_LG ; then
@@ -29,7 +29,8 @@ fi
 export BUILD_DIR="$scriptdir"/build
 export GSTR_RUNTIME_PATH="$scriptdir"/extra/
 export BOOTSTRAP_PATH=/opt/chroots_bullseye/bullseye_x86_64_chroot
-export WINE_BUILD_OPTIONS="--disable-tests --with-x --with-mingw --with-gstreamer --disable-winemenubuilder --disable-win16 --disable-year2038"
+export WINE_BUILD_OPTIONS="--disable-tests --with-x --with-mingw --with-gstreamer --disable-winemenubuilder --disable-win16"
+
 export USE_CCACHE="true"
 
 export WINE_GECKO=$(grep "#define GECKO_VERSION" "$CUSTOM_SRC_PATH/dlls/appwiz.cpl/addons.c" | awk -F\" '{print $2}')
@@ -48,12 +49,13 @@ mkdir -p "${XDG_CACHE_HOME}"/ccache
 mkdir -p "${HOME}"/.ccache
 
 build_with_bwrap () {
-	bwrap --ro-bind "${BOOTSTRAP_PATH}" / --dev /dev --ro-bind /sys /sys \
-		--proc /proc --tmpfs /tmp --tmpfs /home --tmpfs /run --tmpfs /var \
-		--tmpfs /mnt --tmpfs /media --bind "${BUILD_DIR}" "${BUILD_DIR}" \
-		--bind-try "${XDG_CACHE_HOME}"/ccache "${XDG_CACHE_HOME}"/ccache \
-		--bind-try "${HOME}"/.ccache "${HOME}"/.ccache \
-		--setenv PATH "/bin:/sbin:/usr/bin:/usr/sbin" "$@"
+    bwrap --ro-bind "${BOOTSTRAP_PATH}" / --dev /dev --ro-bind /sys /sys \
+		  --proc /proc --tmpfs /home --tmpfs /run --tmpfs /var \
+		  --tmpfs /mnt --tmpfs /media --bind "${BUILD_DIR}" "${BUILD_DIR}" \
+		  --bind-try /tmp /tmp \
+		  --bind-try "${XDG_CACHE_HOME}"/ccache "${XDG_CACHE_HOME}"/ccache \
+		  --bind-try "${HOME}"/.ccache "${HOME}"/.ccache \
+		  --setenv PATH "/bin:/sbin:/usr/bin:/usr/sbin" "$@"
 }
 BWRAP="build_with_bwrap"
 
@@ -96,13 +98,13 @@ fi
 export NCPU=$(nproc)
 export RESULT_DIR="$BUILD_DIR/$WINE_FULL_NAME"
 mkdir -p "$RESULT_DIR"
-
 start=$(date +%s)
 
 cd "${BUILD_DIR}" || exit 1
-# ${BWRAP} dlls/winevulkan/make_vulkan
-# ${BWRAP} tools/make_requests
-# ${BWRAP} autoreconf -f
+${BWRAP} dlls/winevulkan/make_vulkan
+${BWRAP} tools/make_requests
+${BWRAP} tools/make_specfiles
+${BWRAP} autoreconf -f
 
 export CROSSCC_X32="i686-w64-mingw32-gcc"
 export CROSSCXX_X32="i686-w64-mingw32-g++"
@@ -214,13 +216,18 @@ done
 
 echo "$WINE_FULL_NAME" > "$RESULT_DIR"/version
 
-echo "Copying 64 bit runtime libraries to build"
-#copy sdl2, faudio, vkd3d, and ffmpeg libraries
-cp -R "${GSTR_RUNTIME_PATH}"/lib64/* "$RESULT_DIR"/lib64/
+if [[ "$NO_EXTRA" != "1" ]] ; then
+	echo "Copying PATENTS.AV1 to build"
+	cp "${GSTR_RUNTIME_PATH}"/PATENTS.AV1 "$RESULT_DIR"/
 
-echo "Copying 32 bit runtime libraries to build"
-#copy sdl2, faudio, vkd3d, and ffmpeg libraries
-cp -R "${GSTR_RUNTIME_PATH}"/lib32/* "$RESULT_DIR"/lib/
+	echo "Copying 64 bit runtime libraries to build"
+	# copy sdl2, faudio, vkd3d, and ffmpeg libraries
+	cp -R "${GSTR_RUNTIME_PATH}"/lib64/* "$RESULT_DIR"/lib64/
+
+	echo "Copying 32 bit runtime libraries to build"
+	# copy sdl2, faudio, vkd3d, and ffmpeg libraries
+	cp -R "${GSTR_RUNTIME_PATH}"/lib32/* "$RESULT_DIR"/lib/
+fi
 
 echo "Copying proton fonts to build"
 cp -R ${GSTR_RUNTIME_PATH}/proton-fonts "$RESULT_DIR"/share/fonts

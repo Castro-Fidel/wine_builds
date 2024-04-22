@@ -88,7 +88,7 @@ apt-get -y install software-properties-common
 dpkg --add-architecture i386
 apt-get update
 # Wine dependencies
-apt-get install -y gcc-9 gcc-multilib g++-9 g++-multilib \
+apt-get install -y gcc-10 gcc-multilib g++-10 g++-multilib \
                 g++-mingw-w64-x86-64 g++-mingw-w64-i686 \
                 gcc-mingw-w64-x86-64 gcc-mingw-w64-i686 \
                 git sudo autoconf flex bison perl gettext \
@@ -130,7 +130,9 @@ apt-get install -y gcc-9 gcc-multilib g++-9 g++-multilib \
                 gudev-1.0:amd64 gudev-1.0:i386 \
                 libgcrypt-dev libgpg-error-dev \
                 x11proto-dev \
-                libdrm-dev libdrm-dev:i386
+                libdrm-dev libdrm-dev:i386 \
+                libxkbcommon-dev libxkbcommon-dev:i386 \
+                libxcb1-dev libxcb1-dev:i386
 
 # More wine dependencies
 apt-get install -y ccache netbase curl ca-certificates \
@@ -155,7 +157,7 @@ apt-get install -y libgstreamer-plugins-base1.0-dev:amd64 libgstreamer-plugins-b
                     gstreamer1.0-plugins-bad:i386 gstreamer1.0-plugins-ugly:i386
 
 # Misc utilities (not sure if fontconfig is required)
-apt-get -y install wget build-essential vim nano fontconfig flex #autoreconf
+apt-get -y install wget build-essential vim nano fontconfig flex dh-autoreconf
 
 # Runtime dependencies
 apt-get -y install lsb-release

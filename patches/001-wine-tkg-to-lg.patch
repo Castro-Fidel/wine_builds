@@ -18,15 +18,6 @@ index 0f26e576..d74e081d 100755
  wine_fn_config_makefile programs/winemine enable_winemine
  wine_fn_config_makefile programs/winemsibuilder enable_winemsibuilder
  wine_fn_config_makefile programs/winepath enable_winepath
-@@ -24257,7 +24255,7 @@ maintainer-clean::
- 
- as_fn_append wine_rules "
- dlls/ntdll/unix/version.c: dummy
--	@version=\`(echo \"wine-9.2.r0.gdc3b4e65\") | sed -n -e '\$\$s/\(.*\)/const char wine_build[] = \"\\1  ( TkG Staging Esync Fsync )\";/p'\` && (echo \$\$version | cmp -s - \$@) || echo \$\$version >\$@ || (rm -f \$@ && exit 1)
-+	@version=\`(echo \"wine-9.2.r0.gdc3b4e65\") | sed -n -e '\$\$s/\(.*\)/const char wine_build[] = \"\\1  ( LG )\";/p'\` && (echo \$\$version | cmp -s - \$@) || echo \$\$version >\$@ || (rm -f \$@ && exit 1)
- programs/winetest/build.rc: dummy
- 	@build=\"STRINGTABLE { 1 \\\"\`GIT_DIR=${wine_srcdir}.git git rev-parse HEAD 2>/dev/null\`\\\" }\" && (echo \$\$build | cmp -s - \$@) || echo \$\$build >\$@ || (rm -f \$@ && exit 1)
- programs/winetest/build.nfo:
 diff --git a/configure.ac b/configure.ac
 index 4735d5d7..8ccd33bc 100644
 --- a/configure.ac
@@ -39,15 +30,6 @@ index 4735d5d7..8ccd33bc 100644
  WINE_CONFIG_MAKEFILE(programs/winemine)
  WINE_CONFIG_MAKEFILE(programs/winemsibuilder)
  WINE_CONFIG_MAKEFILE(programs/winepath)
-@@ -3718,7 +3717,7 @@ dnl Rules for generated source files
- 
- WINE_APPEND_RULE(
- [dlls/ntdll/unix/version.c: dummy
--	@version=\`(echo \"wine-9.2.r0.gdc3b4e65\") | sed -n -e '\$\$s/\(.*\)/const char wine_build[[]] = \"\\1  ( TkG Staging Esync Fsync )\";/p'\` && (echo \$\$version | cmp -s - \$[@]) || echo \$\$version >\$[@] || (rm -f \$[@] && exit 1)
-+	@version=\`(echo \"wine-9.2.r0.gdc3b4e65\") | sed -n -e '\$\$s/\(.*\)/const char wine_build[[]] = \"\\1  ( LG )\";/p'\` && (echo \$\$version | cmp -s - \$[@]) || echo \$\$version >\$[@] || (rm -f \$[@] && exit 1)
- programs/winetest/build.rc: dummy
- 	@build=\"STRINGTABLE { 1 \\\"\`GIT_DIR=${wine_srcdir}.git git rev-parse HEAD 2>/dev/null\`\\\" }\" && (echo \$\$build | cmp -s - \$[@]) || echo \$\$build >\$[@] || (rm -f \$[@] && exit 1)
- programs/winetest/build.nfo:
 diff --git a/dlls/advapi32/advapi.c b/dlls/advapi32/advapi.c
 index 2284e92b..127cec57 100644
 --- a/dlls/advapi32/advapi.c
