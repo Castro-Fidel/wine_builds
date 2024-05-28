@@ -1,5 +1,13 @@
-## Build WINE (PROTON_LG) for PortProton
+## Build WINE_LG for PortProton
 
+Create chroot debian:
+```# 01_create_debian_multi.sh```
+
+Get source WINE_TKG and patchs it:
+```$ ./02_get_wine tkg```
+
+Build from sources:
+```$ 03_build_wine_debian_multi.sh```
 
 ### Links to the sources
 * https://github.com/Kron4ek/Wine-Builds

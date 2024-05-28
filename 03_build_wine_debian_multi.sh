@@ -20,12 +20,14 @@ fi
 
 export scriptdir="$(dirname "$(readlink -f "${BASH_SOURCE[0]}")")"
 
-export WINE_FULL_NAME="WINE_LG_9-7"
-if echo $WINE_FULL_NAME | grep PROTON_LG ; then
-	export CUSTOM_SRC_PATH="$scriptdir"/wine/
-elif echo $WINE_FULL_NAME | grep WINE_LG ; then
-	export CUSTOM_SRC_PATH="$scriptdir"/wine-tkg/
+if [[ -d "$scriptdir"/wine-tkg/ ]] ; then
+	CUSTOM_SRC_PATH="$scriptdir"/wine-tkg/
+	WINE_FULL_NAME="WINE_LG_$(awk '{print $3}' "$scriptdir/wine-tkg/VERSION")"
+else
+	echo "Source not found."
+	exit 1
 fi
+export WINE_FULL_NAME CUSTOM_SRC_PATH
 export BUILD_DIR="$scriptdir"/build
 export GSTR_RUNTIME_PATH="$scriptdir"/extra/
 export BOOTSTRAP_PATH=/opt/chroots_bullseye/bullseye_x86_64_chroot
