@@ -3,24 +3,43 @@
 cd "$(dirname "`readlink -f "$0"`")"
 export SCRIPTS_PATH="$(pwd)"
 
-if [[ $1 == tkg ]] ; then
-    git clone https://github.com/Kron4ek/wine-tkg "${SCRIPTS_PATH}/wine-tkg/"
-    cd "${SCRIPTS_PATH}/wine-tkg/"
-    echo "adding 001-wine-tkg-to-lg patches"
-    patch -Np1 < ../patches/001-wine-tkg-to-lg.patch
-    sed -i "s/TkG Staging Esync Fsync/LG/g" configure
-    sed -i "s/TkG Staging Esync Fsync/LG/g" configure.ac
-elif [[ $1 == ge ]] ; then
-    git clone --recurse-submodules https://github.com/GloriousEggroll/proton-ge-custom.git
-    git fetch --tags
-    git checkout tags/GE-Proton9-2
-    cd "${SCRIPTS_PATH}/proton-ge-custom/wine/"
-#     echo "01-De-steamify-proton-s-WINE_for_PortProton patches"
-#     patch -Np1 < ../../patches/01-De-steamify-proton-s-WINE_for_PortProton.patch
+fatal () {
+    echo "Fatal error!"
+    exit 1
+}
+
+version="$1"
+if [[ ! -z $version ]] ; then
+#     git clone https://github.com/Kron4ek/wine-tkg "${SCRIPTS_PATH}/wine-tkg/"
+    wget https://github.com/Kron4ek/wine-tkg/archive/refs/tags/$version.tar.gz || fatal
+    tar -xf $version.tar.gz || fatal
+    rm -f $version.tar.gz || fatal
+    mv wine-tkg-$version wine-tkg || fatal
+    pushd "${SCRIPTS_PATH}/wine-tkg/" || fatal
+
+    echo -e "-----------------------------------------\nAdding 001-wine-tkg-to-lg patches:\n"
+    patch -Np1 < ../patches/001-wine-tkg-to-lg.patch || fatal
+
+#     echo -e "-----------------------------------------\nAdding dualsense patches:\n"
+#     patch -Np1 < ../patches/dualsense/0001-pending-review-mmdevapi-support-VT_CLSID-for-contain.patch || fatal
+#     patch -Np1 < ../patches/dualsense/0002-pending-review-mmdevapi-decode-ContainerId-property-.patch || fatal
+#     patch -Np1 < ../patches/dualsense/0003-pending-review-mmdevapi-copy-ContainerID-from-audio-.patch || fatal
+#     patch -Np1 < ../patches/dualsense/0004-pending-review-mmdevapi-Invalidate-ContainerID-of-un.patch || fatal
+#     patch -Np1 < ../patches/dualsense/0005-draft-winepulse-Store-PulseAudio-device-s-sysfs-path.patch || fatal
+#     patch -Np1 < ../patches/dualsense/0006-draft-winepulse-Add-support-for-containerId-property.patch || fatal
+#     patch -Np1 < ../patches/dualsense/0007-draft-winebus-store-container-sysfs-path-from-udev-b.patch || fatal
+#     patch -Np1 < ../patches/dualsense/0008-draft-winebus-implement-BusQueryContainerID-based-on.patch || fatal
+#     patch -Np1 < ../patches/dualsense/0009-WiP-Implement-SetupDiGetDeviceInterfacePropertyW-for.patch || fatal
+
+    sed -i "s/TkG Staging Esync Fsync/LG/g" configure || fatal
+    sed -i "s/TkG Staging Esync Fsync/LG/g" configure.ac || fatal
+
 else
-    echo "Use: 02_get_wine < tkg | proton >"
+    echo "Use: 02_get_wine VESRION"
     exit 0
 fi
 
-cd ${SCRIPTS_PATH}
+echo -e "\nDone\n"
+popd
+
 # ${SCRIPTS_PATH}/03_build_wine_debian_multi.sh
