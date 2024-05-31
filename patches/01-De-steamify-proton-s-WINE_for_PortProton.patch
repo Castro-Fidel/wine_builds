@@ -1,9 +1,9 @@
  /******************************************************************************
 diff --git a/dlls/kernelbase/process.c b/dlls/kernelbase/process.c
-index 54f9435bc16..ac30af8156e 100644
+index 7ea75b58a..526a0fdee 100644
 --- a/dlls/kernelbase/process.c
 +++ b/dlls/kernelbase/process.c
-@@ -1223,21 +1223,6 @@ HANDLE WINAPI DECLSPEC_HOTPATCH OpenProcess( DWORD access, BOOL inherit, DWORD i
+@@ -1300,21 +1300,6 @@ HANDLE WINAPI DECLSPEC_HOTPATCH OpenProcess( DWORD access, BOOL inherit, DWORD i
      attr.SecurityDescriptor = NULL;
      attr.SecurityQualityOfService = NULL;
 
@@ -25,28 +25,40 @@ index 54f9435bc16..ac30af8156e 100644
      cid.UniqueProcess = ULongToHandle(id);
      cid.UniqueThread  = 0;
 
---
-2.40.0
-
-From 7c37975071de0abb999bf70a18a75dc905d6e141 Mon Sep 17 00:00:00 2001
-From: GloriousEggroll <gloriouseggroll@gmail.com>
-Date: Mon, 1 May 2023 16:52:06 -0600
-Subject: [PATCH 02/12] 2
-
----
- dlls/ntdll/loader.c             | 23 ----------
- dlls/ntdll/unix/loader.c        | 76 ---------------------------------
- dlls/ntdll/unix/signal_i386.c   |  7 ---
- dlls/ntdll/unix/signal_x86_64.c |  7 ---
- dlls/ntdll/unix/unix_private.h  |  2 -
- dlls/ntdll/unixlib.h            |  7 ---
- 6 files changed, 122 deletions(-)
-
 diff --git a/dlls/ntdll/loader.c b/dlls/ntdll/loader.c
-index aef795d38a1..c92e6b61f5b 100644
+index 8dfe4e21e..073eb2cd6 100644
 --- a/dlls/ntdll/loader.c
 +++ b/dlls/ntdll/loader.c
-@@ -2279,16 +2279,12 @@ static NTSTATUS build_module( LPCWSTR load_path, const UNICODE_STRING *nt_name,
+@@ -90,7 +90,7 @@ const WCHAR windows_dir[] = L"C:\\windows";
+ const WCHAR system_dir[] = L"C:\\windows\\system32\\";
+
+ /* system search path */
+-static const WCHAR system_path[] = L"C:\\windows\\system32;C:\\windows\\system;C:\\windows;C:\\Program Files (x86)\\Steam";
++static const WCHAR system_path[] = L"C:\\windows\\system32;C:\\windows\\system;C:\\windows";
+
+ static BOOL is_prefix_bootstrap;  /* are we bootstrapping the prefix? */
+ static BOOL imports_fixup_done = FALSE;  /* set once the imports have been fixed up, before attaching them */
+@@ -2196,19 +2196,6 @@ static NTSTATUS perform_relocations( void *module, IMAGE_NT_HEADERS *nt, SIZE_T
+     return STATUS_SUCCESS;
+ }
+
+-static int use_lsteamclient(void)
+-{
+-    WCHAR env[32];
+-    static int use = -1;
+-
+-    if (use != -1) return use;
+-
+-    use = !get_env( L"PROTON_DISABLE_LSTEAMCLIENT", env, sizeof(env) ) || *env == '0';
+-    if (!use)
+-        ERR("lsteamclient disabled.\n");
+-    return use;
+-}
+-
+ /*************************************************************************
+  *		build_module
+  *
+@@ -2219,16 +2206,12 @@ static NTSTATUS build_module( LPCWSTR load_path, const UNICODE_STRING *nt_name,
                                DWORD flags, BOOL system, WINE_MODREF **pwm )
  {
      static const char builtin_signature[] = "Wine builtin DLL";
@@ -63,9 +75,9 @@ index aef795d38a1..c92e6b61f5b 100644
 
      if (!(nt = RtlImageNtHeader( *module ))) return STATUS_INVALID_IMAGE_FORMAT;
 
-@@ -2309,25 +2305,6 @@ static NTSTATUS build_module( LPCWSTR load_path, const UNICODE_STRING *nt_name,
+@@ -2249,25 +2232,6 @@ static NTSTATUS build_module( LPCWSTR load_path, const UNICODE_STRING *nt_name,
 
-     set_security_cookie( *module, map_size );
+     update_load_config( *module );
 
 -    basename = nt_name->Buffer;
 -    if ((tmp = wcsrchr(basename, '\\'))) basename = tmp + 1;
@@ -81,7 +93,7 @@ index aef795d38a1..c92e6b61f5b 100644
 -        (lsteamclient || LdrLoadDll(load_path, 0, &lsteamclient_us, &lsteamclient) == STATUS_SUCCESS))
 -    {
 -        struct steamclient_setup_trampolines_params params = {.src_mod = *module, .tgt_mod = lsteamclient};
--        NTDLL_UNIX_CALL( steamclient_setup_trampolines, &params );
+-        WINE_UNIX_CALL( unix_steamclient_setup_trampolines, &params );
 -        wm->ldr.Flags |= LDR_DONT_RESOLVE_REFS;
 -        flags |= DONT_RESOLVE_DLL_REFERENCES;
 -    }
@@ -89,13 +101,75 @@ index aef795d38a1..c92e6b61f5b 100644
      /* fixup imports */
 
      if (!(flags & DONT_RESOLVE_DLL_REFERENCES) &&
+diff --git a/dlls/ntdll/unix/env.c b/dlls/ntdll/unix/env.c
+index c2c46dd0a..29f5aa2b1 100644
+--- a/dlls/ntdll/unix/env.c
++++ b/dlls/ntdll/unix/env.c
+@@ -2507,7 +2507,6 @@ void WINAPI RtlSetLastWin32Error( DWORD err )
+  */
+ NTSTATUS WINAPI __wine_set_unix_env( const char *var, const char *val )
+ {
+-    if (!val) unsetenv(var);
+-    else setenv(var, val, 1);
++    setenv(var, val, 1);
+     return 0;
+ }
 diff --git a/dlls/ntdll/unix/loader.c b/dlls/ntdll/unix/loader.c
-index 9c5aa5122a3..f1054c2e9f4 100644
+index b7d1f6772..993bd61b0 100644
 --- a/dlls/ntdll/unix/loader.c
 +++ b/dlls/ntdll/unix/loader.c
-@@ -2121,24 +2121,6 @@ static ULONG_PTR get_image_address(void)
- }
+@@ -592,47 +592,12 @@ NTSTATUS exec_wineloader( char **argv, int socketfd, const pe_image_info_t *pe_i
+     WORD machine = pe_info->machine;
+     ULONGLONG res_start = pe_info->base;
+     ULONGLONG res_end = pe_info->base + pe_info->map_size;
+-    const char *ld_preload = getenv( "LD_PRELOAD" );
++
+     char preloader_reserve[64], socket_env[64];
 
+     if (pe_info->wine_fakedll) res_start = res_end = 0;
+     if (pe_info->image_flags & IMAGE_FLAGS_ComPlusNativeReady) machine = native_machine;
+
+-    unsetenv( "WINE_LD_PRELOAD" );
+-
+-    /* HACK: Unset LD_PRELOAD before executing explorer.exe to disable buggy gameoverlayrenderer.so */
+-    if (ld_preload && argv[2] && !strcmp( argv[2], "C:\\windows\\system32\\explorer.exe" ) &&
+-        argv[3] && !strcmp( argv[3], "/desktop" ))
+-    {
+-        static char const gorso[] = "gameoverlayrenderer.so";
+-        static int gorso_len = sizeof(gorso) - 1;
+-        int len = strlen( ld_preload );
+-        char *next, *tmp, *env = malloc( sizeof("LD_PRELOAD=") + len );
+-
+-        if (!env) return STATUS_NO_MEMORY;
+-        strcpy( env, "LD_PRELOAD=" );
+-        strcat( env, ld_preload );
+-
+-        tmp = env + 11;
+-        do
+-        {
+-            if (!(next = strchr( tmp, ':' ))) next = tmp + strlen( tmp );
+-            if (next - tmp >= gorso_len && strncmp( next - gorso_len, gorso, gorso_len ) == 0)
+-            {
+-                if (*next) memmove( tmp, next + 1, strlen(next) );
+-                else *tmp = 0;
+-                next = tmp;
+-            }
+-            else tmp = next + 1;
+-        }
+-        while (*next);
+-
+-        putenv( env );
+-        ld_preload = NULL;
+-    }
+-
+-    if (ld_preload) setenv( "WINE_LD_PRELOAD", ld_preload, 1 );
+-
+     signal( SIGPIPE, SIG_DFL );
+
+     snprintf( socket_env, sizeof(socket_env), "WINESERVERSOCKET=%u", socketfd );
+@@ -1052,96 +1017,6 @@ static NTSTATUS load_so_dll( void *args )
+     return status;
+ }
 
 -static void *steamclient_srcs[128];
 -static void *steamclient_tgts[128];
@@ -115,13 +189,20 @@ index 9c5aa5122a3..f1054c2e9f4 100644
 -
 -    return NULL;
 -}
-
- static void steamclient_write_jump(void *src_addr, void *tgt_addr)
- {
-@@ -2153,63 +2135,6 @@ static void steamclient_write_jump(void *src_addr, void *tgt_addr)
-     memcpy((char *)src_addr + sizeof(mov) + sizeof(tgt_addr), jmp, sizeof(jmp));
- }
-
+-
+-static void steamclient_write_jump(void *src_addr, void *tgt_addr)
+-{
+-#ifdef _WIN64
+-    static const char mov[] = {0x48, 0xb8};
+-#else
+-    static const char mov[] = {0xb8};
+-#endif
+-    static const char jmp[] = {0xff, 0xe0};
+-    memcpy(src_addr, mov, sizeof(mov));
+-    memcpy((char *)src_addr + sizeof(mov), &tgt_addr, sizeof(tgt_addr));
+-    memcpy((char *)src_addr + sizeof(mov) + sizeof(tgt_addr), jmp, sizeof(jmp));
+-}
+-
 -static NTSTATUS steamclient_setup_trampolines( void *args )
 -{
 -    static int noexec_cached = -1;
@@ -179,22 +260,23 @@ index 9c5aa5122a3..f1054c2e9f4 100644
 -
 -    return STATUS_SUCCESS;
 -}
-
+-
  static BOOL debugstr_pc_impl( void *pc, char *buffer, unsigned int size )
  {
-@@ -2270,7 +2195,6 @@ const unixlib_entry_t __wine_unix_call_funcs[] =
-     load_so_dll,
-     unwind_builtin_dll,
+     unsigned int len;
+@@ -1203,7 +1078,6 @@ static const unixlib_entry_t unix_call_funcs[] =
+     unixcall_wine_server_handle_to_fd,
+     unixcall_wine_spawnvp,
      system_time_precise,
 -    steamclient_setup_trampolines,
      is_pc_in_native_so,
      debugstr_pc,
  };
 diff --git a/dlls/ntdll/unix/signal_i386.c b/dlls/ntdll/unix/signal_i386.c
-index 329c63cf068..874f6c24261 100644
+index 5b7d46037..32dcfa6d3 100644
 --- a/dlls/ntdll/unix/signal_i386.c
 +++ b/dlls/ntdll/unix/signal_i386.c
-@@ -1881,7 +1881,6 @@ static void segv_handler( int signal, siginfo_t *siginfo, void *sigcontext )
+@@ -1928,7 +1928,6 @@ static void segv_handler( int signal, siginfo_t *siginfo, void *sigcontext )
      struct xcontext xcontext;
      ucontext_t *ucontext = sigcontext;
      void *stack = setup_exception_record( sigcontext, &rec, &xcontext );
@@ -202,7 +284,7 @@ index 329c63cf068..874f6c24261 100644
 
      switch (TRAP_sig(ucontext))
      {
-@@ -1916,12 +1915,6 @@ static void segv_handler( int signal, siginfo_t *siginfo, void *sigcontext )
+@@ -1963,12 +1962,6 @@ static void segv_handler( int signal, siginfo_t *siginfo, void *sigcontext )
          }
          break;
      case TRAP_x86_PAGEFLT:  /* Page fault */
@@ -216,18 +298,18 @@ index 329c63cf068..874f6c24261 100644
          rec.ExceptionInformation[0] = (ERROR_sig(ucontext) >> 1) & 0x09;
          rec.ExceptionInformation[1] = (ULONG_PTR)siginfo->si_addr;
 diff --git a/dlls/ntdll/unix/signal_x86_64.c b/dlls/ntdll/unix/signal_x86_64.c
-index 900eedb20e7..8f8484bcebd 100644
+index f0467def5..dcb0c465c 100644
 --- a/dlls/ntdll/unix/signal_x86_64.c
 +++ b/dlls/ntdll/unix/signal_x86_64.c
-@@ -2299,7 +2299,6 @@ static void segv_handler( int signal, siginfo_t *siginfo, void *sigcontext )
+@@ -2268,7 +2268,6 @@ static void segv_handler( int signal, siginfo_t *siginfo, void *sigcontext )
      EXCEPTION_RECORD rec = { 0 };
      struct xcontext context;
-     ucontext_t *ucontext = sigcontext;
+     ucontext_t *ucontext = init_handler( sigcontext );
 -    void *steamclient_addr = NULL;
 
      rec.ExceptionAddress = (void *)RIP_sig(ucontext);
-     save_context( &context, sigcontext );
-@@ -2331,12 +2330,6 @@ static void segv_handler( int signal, siginfo_t *siginfo, void *sigcontext )
+     save_context( &context, ucontext );
+@@ -2300,12 +2299,6 @@ static void segv_handler( int signal, siginfo_t *siginfo, void *sigcontext )
          }
          break;
      case TRAP_x86_PAGEFLT:  /* Page fault */
@@ -241,23 +323,22 @@ index 900eedb20e7..8f8484bcebd 100644
          rec.ExceptionInformation[0] = (ERROR_sig(ucontext) >> 1) & 0x09;
          rec.ExceptionInformation[1] = (ULONG_PTR)siginfo->si_addr;
 diff --git a/dlls/ntdll/unix/unix_private.h b/dlls/ntdll/unix/unix_private.h
-index 95f9bc67b28..29dd8312c83 100644
+index cf6b9ab0c..15de3bd68 100644
 --- a/dlls/ntdll/unix/unix_private.h
 +++ b/dlls/ntdll/unix/unix_private.h
-@@ -213,8 +213,6 @@ extern NTSTATUS system_time_precise( void *args ) DECLSPEC_HIDDEN;
- extern void *anon_mmap_fixed( void *start, size_t size, int prot, int flags ) DECLSPEC_HIDDEN;
- extern void *anon_mmap_alloc( size_t size, int prot ) DECLSPEC_HIDDEN;
+@@ -242,7 +242,6 @@ extern unsigned int alloc_object_attributes( const OBJECT_ATTRIBUTES *attr, stru
+                                              data_size_t *ret_len );
+ extern NTSTATUS system_time_precise( void *args );
 
--extern void *steamclient_handle_fault( LPCVOID addr, DWORD err ) DECLSPEC_HIDDEN;
--
- extern void virtual_init(void) DECLSPEC_HIDDEN;
- extern ULONG_PTR get_system_affinity_mask(void) DECLSPEC_HIDDEN;
- extern void virtual_get_system_info( SYSTEM_BASIC_INFORMATION *info, BOOL wow64 ) DECLSPEC_HIDDEN;
+-extern void *steamclient_handle_fault( LPCVOID addr, DWORD err );
+ extern void *anon_mmap_fixed( void *start, size_t size, int prot, int flags );
+ extern void *anon_mmap_alloc( size_t size, int prot );
+ extern void virtual_init(void);
 diff --git a/dlls/ntdll/unixlib.h b/dlls/ntdll/unixlib.h
-index f0cf12b904c..a832cc62b93 100644
+index e0870584a..94abe3450 100644
 --- a/dlls/ntdll/unixlib.h
 +++ b/dlls/ntdll/unixlib.h
-@@ -38,12 +38,6 @@ struct unwind_builtin_dll_params
+@@ -66,12 +66,6 @@ struct unwind_builtin_dll_params
      CONTEXT                    *context;
  };
 
@@ -270,192 +351,20 @@ index f0cf12b904c..a832cc62b93 100644
  struct debugstr_pc_args
  {
      void *pc;
-@@ -56,7 +50,6 @@ enum ntdll_unix_funcs
-     unix_load_so_dll,
-     unix_unwind_builtin_dll,
+@@ -89,7 +83,6 @@ enum ntdll_unix_funcs
+     unix_wine_server_handle_to_fd,
+     unix_wine_spawnvp,
      unix_system_time_precise,
 -    unix_steamclient_setup_trampolines,
      unix_is_pc_in_native_so,
      unix_debugstr_pc,
  };
---
-2.40.0
-
-From d97933e957e01a961cd12f0aae29fe6049fb897d Mon Sep 17 00:00:00 2001
-From: GloriousEggroll <gloriouseggroll@gmail.com>
-Date: Mon, 1 May 2023 16:53:31 -0600
-Subject: [PATCH 03/12] 3
-
----
- dlls/ntdll/unix/loader.c | 16 ----------------
- 1 file changed, 16 deletions(-)
-
-diff --git a/dlls/ntdll/unix/loader.c b/dlls/ntdll/unix/loader.c
-index f1054c2e9f4..08bb870baae 100644
---- a/dlls/ntdll/unix/loader.c
-+++ b/dlls/ntdll/unix/loader.c
-@@ -2120,22 +2120,6 @@ static ULONG_PTR get_image_address(void)
-     return 0;
- }
-
--
--
--static void steamclient_write_jump(void *src_addr, void *tgt_addr)
--{
--#ifdef _WIN64
--    static const char mov[] = {0x48, 0xb8};
--#else
--    static const char mov[] = {0xb8};
--#endif
--    static const char jmp[] = {0xff, 0xe0};
--    memcpy(src_addr, mov, sizeof(mov));
--    memcpy((char *)src_addr + sizeof(mov), &tgt_addr, sizeof(tgt_addr));
--    memcpy((char *)src_addr + sizeof(mov) + sizeof(tgt_addr), jmp, sizeof(jmp));
--}
--
--
- static BOOL debugstr_pc_impl( void *pc, char *buffer, unsigned int size )
- {
-     unsigned int len;
---
-2.40.0
-
-From ac861fab2246a4698c3dbd1b694733d2478049b4 Mon Sep 17 00:00:00 2001
-From: GloriousEggroll <gloriouseggroll@gmail.com>
-Date: Mon, 1 May 2023 16:55:28 -0600
-Subject: [PATCH 04/12] 4
-
----
- dlls/ntdll/unix/env.c       |  3 +--
- programs/winebrowser/main.c | 18 ------------------
- 2 files changed, 1 insertion(+), 20 deletions(-)
-
-diff --git a/dlls/ntdll/unix/env.c b/dlls/ntdll/unix/env.c
-index 9e5abc3c4fe..56bb0d9d4fc 100644
---- a/dlls/ntdll/unix/env.c
-+++ b/dlls/ntdll/unix/env.c
-@@ -2437,7 +2437,6 @@ void WINAPI RtlSetLastWin32Error( DWORD err )
-  */
- ULONG WINAPI __wine_set_unix_env( const char *var, const char *val )
- {
--    if (!val) unsetenv(var);
--    else setenv(var, val, 1);
-+    setenv(var, val, 1);
-     return 0;
- }
-diff --git a/programs/winebrowser/main.c b/programs/winebrowser/main.c
-index d183b07a921..369ecb98002 100644
---- a/programs/winebrowser/main.c
-+++ b/programs/winebrowser/main.c
-@@ -63,19 +63,6 @@ static char *strdup_unixcp( const WCHAR *str )
-     return ret;
- }
-
--ULONG WINAPI __wine_set_unix_env( const char *var, const char *val );
--
--static void restore_system_environment(void)
--{
--    const char* orig_ld_path = getenv("ORIG_LD_LIBRARY_PATH");
--
--    if (orig_ld_path)
--    {
--        __wine_set_unix_env("LD_LIBRARY_PATH", orig_ld_path);
--        __wine_set_unix_env("ORIG_LD_LIBRARY_PATH", NULL);
--    }
--}
--
- /* try to launch a unix app from a comma separated string of app names */
- static int launch_app( const WCHAR *candidates, const WCHAR *argv1 )
- {
-@@ -85,11 +72,6 @@ static int launch_app( const WCHAR *candidates, const WCHAR *argv1 )
-
-     if (!(cmdline = strdup_unixcp( argv1 ))) return 1;
-
--    /* PROTON HACK: Restore ORIG_LD_LIBRARY_PATH to LD_LIBRARY_PATH.
--     * System programs may not work correctly with our libraries, in
--     * particular gio on Ubuntu 19.04 is broken by our libgio. */
--    restore_system_environment();
--
-     while (*candidates)
-     {
-         WCHAR **args = CommandLineToArgvW( candidates, &count );
---
-2.40.0
-
-From d024cbee0739e1f072fd50336292bb617f4a2da1 Mon Sep 17 00:00:00 2001
-From: GloriousEggroll <gloriouseggroll@gmail.com>
-Date: Mon, 1 May 2023 16:57:02 -0600
-Subject: [PATCH 05/12] 5
-
----
- dlls/ntdll/unix/loader.c | 31 -------------------------------
- 1 file changed, 31 deletions(-)
-
-diff --git a/dlls/ntdll/unix/loader.c b/dlls/ntdll/unix/loader.c
-index 08bb870baae..50bff4d744e 100644
---- a/dlls/ntdll/unix/loader.c
-+++ b/dlls/ntdll/unix/loader.c
-@@ -773,42 +773,11 @@ NTSTATUS exec_wineloader( char **argv, int socketfd, const pe_image_info_t *pe_i
-     WORD machine = pe_info->machine;
-     ULONGLONG res_start = pe_info->base;
-     ULONGLONG res_end = pe_info->base + pe_info->map_size;
--    const char *ld_preload = getenv( "LD_PRELOAD" );
-     char preloader_reserve[64], socket_env[64];
-
-     if (pe_info->image_flags & IMAGE_FLAGS_WineFakeDll) res_start = res_end = 0;
-     if (pe_info->image_flags & IMAGE_FLAGS_ComPlusNativeReady) machine = native_machine;
-
--    /* HACK: Unset LD_PRELOAD before executing explorer.exe to disable buggy gameoverlayrenderer.so */
--    if (ld_preload && argv[2] && !strcmp( argv[2], "C:\\windows\\system32\\explorer.exe" ) &&
--        argv[3] && !strcmp( argv[3], "/desktop" ))
--    {
--        static char const gorso[] = "gameoverlayrenderer.so";
--        static int gorso_len = sizeof(gorso) - 1;
--        int len = strlen( ld_preload );
--        char *next, *tmp, *env = malloc( sizeof("LD_PRELOAD=") + len );
--
--        if (!env) return STATUS_NO_MEMORY;
--        strcpy( env, "LD_PRELOAD=" );
--        strcat( env, ld_preload );
--
--        tmp = env + 11;
--        do
--        {
--            if (!(next = strchr( tmp, ':' ))) next = tmp + strlen( tmp );
--            if (next - tmp >= gorso_len && strncmp( next - gorso_len, gorso, gorso_len ) == 0)
--            {
--                if (*next) memmove( tmp, next + 1, strlen(next) );
--                else *tmp = 0;
--                next = tmp;
--            }
--            else tmp = next + 1;
--        }
--        while (*next);
--
--        putenv( env );
--    }
--
-     signal( SIGPIPE, SIG_DFL );
-
-     sprintf( socket_env, "WINESERVERSOCKET=%u", socketfd );
---
-2.40.0
-
-
-From 5df6ecc5371068fda54353b2f528bf462e2b0694 Mon Sep 17 00:00:00 2001
-From: GloriousEggroll <gloriouseggroll@gmail.com>
-Date: Mon, 1 May 2023 17:01:26 -0600
-Subject: [PATCH 07/12] 7
-
----
- dlls/winex11.drv/window.c | 15 ++-------------
- 1 file changed, 2 insertions(+), 13 deletions(-)
 
 diff --git a/dlls/winex11.drv/window.c b/dlls/winex11.drv/window.c
-index af34cc6e462..a9816838276 100644
+index db51152e1..172263b92 100644
 --- a/dlls/winex11.drv/window.c
 +++ b/dlls/winex11.drv/window.c
-@@ -1070,19 +1070,8 @@ static void set_initial_wm_hints( Display *display, Window window )
+@@ -1060,19 +1060,8 @@ static void set_initial_wm_hints( Display *display, Window window )
      /* class hints */
      if ((class_hints = XAllocClassHint()))
      {
@@ -477,92 +386,49 @@ index af34cc6e462..a9816838276 100644
          XSetClassHint( display, window, class_hints );
          XFree( class_hints );
      }
---
-2.40.0
-
-From d753924c15d0ebe4b5ce5527739dbb84bc842faf Mon Sep 17 00:00:00 2001
-From: GloriousEggroll <gloriouseggroll@gmail.com>
-Date: Mon, 1 May 2023 17:05:40 -0600
-Subject: [PATCH 08/12] 8
-
----
- loader/wine.inf.in | 9 ++-------
- 1 file changed, 2 insertions(+), 7 deletions(-)
-
 diff --git a/loader/wine.inf.in b/loader/wine.inf.in
-index 68c2564e7b2..92a1874a8d5 100644
+index 1e5b16a53..d1e99538b 100644
 --- a/loader/wine.inf.in
 +++ b/loader/wine.inf.in
-@@ -100,8 +100,7 @@ AddReg=\
+@@ -98,8 +98,7 @@ AddReg=\
      VersionInfo,\
-     LicenseInformation, \
+     LicenseInformation,\
      NVIDIANGX, \
--    ProtonOverrides, \
+-    ProtonOverrides,\
 -    SteamClient
 +    ProtonOverrides
 
  [DefaultInstall.ntamd64]
  RegisterDlls=RegisterDllsSection
-@@ -130,8 +129,7 @@ AddReg=\
-     VersionInfo.ntamd64,\
-     LicenseInformation, \
+@@ -127,8 +126,7 @@ AddReg=\
+     VersionInfo,\
+     LicenseInformation,\
      NVIDIANGX, \
--    ProtonOverrides, \
+-    ProtonOverrides,\
 -    SteamClient.ntamd64
 +    ProtonOverrides
 
  [DefaultInstall.ntarm64]
  RegisterDlls=RegisterDllsSection
-@@ -176,7 +174,6 @@ AddReg=\
-     VersionInfo.ntamd64,\
-     LicenseInformation, \
+@@ -172,8 +170,7 @@ AddReg=\
+     VersionInfo,\
+     LicenseInformation,\
      NVIDIANGX, \
--    ProtonOverrides, \
-     SteamClient.ntamd64
+-    ProtonOverrides,\
+-    SteamClient.ntamd64
++    ProtonOverrides
 
- [Wow64Install.ntarm64]
-@@ -340,7 +337,6 @@ HKCR,ftp\shell\open\command,,2,"""%11%\winebrowser.exe"" ""%1"""
+ [Wow64Install.ntarm]
+ RegisterDlls=RegisterDllsSection
+@@ -351,7 +348,6 @@ HKCR,ftp\shell\open\command,,2,"""%11%\winebrowser.exe"" ""%1"""
  HKCR,http\shell\open\command,,2,"""%11%\winebrowser.exe"" ""%1"""
  HKCR,https\shell\open\command,,2,"""%11%\winebrowser.exe"" ""%1"""
  HKCR,mailto\shell\open\command,,2,"""%11%\winebrowser.exe"" ""%1"""
 -HKCR,steam\shell\open\command,,,"""%16426%\Steam\Steam.exe"" -- ""%1"""
 
- HKCU,Software\Wine\FileOpenBlacklist\.htm,"winebrowser",,"""%11%\winebrowser.exe"" -nohome"
- HKCU,Software\Wine\FileOpenBlacklist\.html,"winebrowser",,"""%11%\winebrowser.exe"" -nohome"
-@@ -443,7 +439,6 @@ HKLM,%CurrentVersionNT%\AeDebug,"Debugger",2,"winedbg --auto %ld %ld"
- HKLM,%CurrentVersionNT%\AeDebug,"Auto",2,"1"
- HKCU,Software\Wine\Debug,"RelayExclude",2,"ntdll.RtlEnterCriticalSection;ntdll.RtlTryEnterCriticalSection;ntdll.RtlLeaveCriticalSection;kernel32.48;kernel32.49;kernel32.94;kernel32.95;kernel32.96;kernel32.97;kernel32.98;kernel32.TlsGetValue;kernel32.TlsSetValue;kernel32.FlsGetValue;kernel32.FlsSetValue;kernel32.SetLastError"
- HKCU,Software\Wine\Debug,"RelayFromExclude",2,"winex11.drv;winemac.drv;user32;gdi32;advapi32;kernel32"
--HKCU,Software\Wine\WineDbg,"ShowCrashDialog",0x00010003,0x00000000
-
- [DirectX]
- HKLM,Software\Microsoft\DirectX,"Version",,"4.09.00.0904"
---
-2.40.0
-
-From 2e6337dadc9b81e84fe3c37b1c5d3792172e213b Mon Sep 17 00:00:00 2001
-From: GloriousEggroll <gloriouseggroll@gmail.com>
-Date: Mon, 1 May 2023 17:09:21 -0600
-Subject: [PATCH 09/12] 9
-
----
- loader/wine.inf.in | 19 ++-----------------
- 2 files changed, 3 insertions(+), 17 deletions(-)
-
-diff --git a/loader/wine.inf.in b/loader/wine.inf.in
-index 92a1874a8d5..2f19d867193 100644
---- a/loader/wine.inf.in
-+++ b/loader/wine.inf.in
-@@ -174,7 +174,7 @@ AddReg=\
-     VersionInfo.ntamd64,\
-     LicenseInformation, \
-     NVIDIANGX, \
--    SteamClient.ntamd64
-+    ProtonOverrides
-
- [Wow64Install.ntarm64]
- WineFakeDlls=FakeDllsWin32
-@@ -3043,22 +3044,6 @@ InfFiles  = 17
+ [ContentIndex]
+ HKLM,System\CurrentControlSet\Control\ContentIndex\Language\Neutral,"WBreakerClass",,"{369647e0-17b0-11ce-9950-00aa004bbb1f}"
+@@ -2817,22 +2812,6 @@ InfFiles  = 17
  NlsFiles  = 11
  SortFiles = 10,globalization\sorting
 
@@ -585,25 +451,45 @@ index 92a1874a8d5..2f19d867193 100644
  [NVIDIANGX]
  HKLM,Software\NVIDIA Corporation\Global\NGXCore,"FullPath",,"C:\Windows\System32"
 
---
-2.40.0
+diff --git a/programs/winebrowser/main.c b/programs/winebrowser/main.c
+index 738930e39..244160701 100644
+--- a/programs/winebrowser/main.c
++++ b/programs/winebrowser/main.c
+@@ -63,17 +63,6 @@ static char *strdup_unixcp( const WCHAR *str )
+     return ret;
+ }
 
-From 5be4d18f4090a915ab60b8d40026640fa716f252 Mon Sep 17 00:00:00 2001
-From: GloriousEggroll <gloriouseggroll@gmail.com>
-Date: Mon, 1 May 2023 17:14:21 -0600
-Subject: [PATCH 11/12] 12
+-static void restore_system_environment(void)
+-{
+-    const char* orig_ld_path = getenv("ORIG_LD_LIBRARY_PATH");
+-
+-    if (orig_ld_path)
+-    {
+-        __wine_set_unix_env("LD_LIBRARY_PATH", orig_ld_path);
+-        __wine_set_unix_env("ORIG_LD_LIBRARY_PATH", NULL);
+-    }
+-}
+-
+ /* try to launch a unix app from a comma separated string of app names */
+ static int launch_app( const WCHAR *candidates, const WCHAR *argv1 )
+ {
+@@ -83,11 +72,6 @@ static int launch_app( const WCHAR *candidates, const WCHAR *argv1 )
 
----
- programs/winedbg/debugger.h   |  2 --
- programs/winedbg/tgt_active.c | 48 -----------------------------------
- programs/winedbg/winedbg.c    | 10 +-------
- 3 files changed, 1 insertion(+), 59 deletions(-)
+     if (!(cmdline = strdup_unixcp( argv1 ))) return 1;
 
+-    /* PROTON HACK: Restore ORIG_LD_LIBRARY_PATH to LD_LIBRARY_PATH.
+-     * System programs may not work correctly with our libraries, in
+-     * particular gio on Ubuntu 19.04 is broken by our libgio. */
+-    restore_system_environment();
+-
+     while (*candidates)
+     {
+         WCHAR **args = CommandLineToArgvW( candidates, &count );
 diff --git a/programs/winedbg/debugger.h b/programs/winedbg/debugger.h
-index 570ed52143f..61fb055e53f 100644
+index 74c935f42..c65b9bfae 100644
 --- a/programs/winedbg/debugger.h
 +++ b/programs/winedbg/debugger.h
-@@ -312,8 +312,6 @@ extern	DWORD	                dbg_curr_tid;
+@@ -311,8 +311,6 @@ extern	DWORD	                dbg_curr_tid;
  extern  dbg_ctx_t               dbg_context;
  extern  BOOL                    dbg_interactiveP;
  extern  HANDLE                  dbg_houtput;
@@ -613,7 +499,7 @@ index 570ed52143f..61fb055e53f 100644
  struct dbg_internal_var
  {
 diff --git a/programs/winedbg/tgt_active.c b/programs/winedbg/tgt_active.c
-index 069d0a39c23..0d5ae754af5 100644
+index 23652b777..175788571 100644
 --- a/programs/winedbg/tgt_active.c
 +++ b/programs/winedbg/tgt_active.c
 @@ -22,8 +22,6 @@
@@ -625,7 +511,7 @@ index 069d0a39c23..0d5ae754af5 100644
 
  #include "debugger.h"
  #include "psapi.h"
-@@ -798,48 +796,6 @@ static HANDLE create_temp_file(void)
+@@ -818,48 +816,6 @@ static HANDLE create_temp_file(void)
                          NULL, CREATE_ALWAYS, FILE_ATTRIBUTE_NORMAL | FILE_FLAG_DELETE_ON_CLOSE, 0 );
  }
 
@@ -671,10 +557,10 @@ index 069d0a39c23..0d5ae754af5 100644
 -                        NULL, CREATE_ALWAYS, FILE_ATTRIBUTE_NORMAL, 0 );
 -}
 -
- static const struct
- {
-     int type;
-@@ -1021,10 +977,6 @@ enum dbg_start dbg_active_auto(int argc, char* argv[])
+ /******************************************************************
+  *		dbg_active_attach
+  *
+@@ -951,10 +907,6 @@ enum dbg_start dbg_active_auto(int argc, char* argv[])
          if (event) thread = display_crash_details( event );
          if (thread) dbg_houtput = output = create_temp_file();
          break;
@@ -686,7 +572,7 @@ index 069d0a39c23..0d5ae754af5 100644
 
      input = parser_generate_command_file("echo Modules:", "info share",
 diff --git a/programs/winedbg/winedbg.c b/programs/winedbg/winedbg.c
-index 8cccf30fa09..9815ed4a046 100644
+index 7769d2048..92fa77429 100644
 --- a/programs/winedbg/winedbg.c
 +++ b/programs/winedbg/winedbg.c
 @@ -82,8 +82,6 @@ DWORD	                dbg_curr_pid = 0;
@@ -720,50 +606,4 @@ index 8cccf30fa09..9815ed4a046 100644
          memmove( line_buff, line_buff + i, line_pos - i );
          line_pos -= i;
      }
---
-2.40.0
 
-From 1b809b41a0577c0cc6bd3555b477e5d87a3c05df Mon Sep 17 00:00:00 2001
-From: GloriousEggroll <gloriouseggroll@gmail.com>
-Date: Tue, 2 May 2023 19:09:52 -0600
-Subject: [PATCH] loader fixup
-
----
- dlls/ntdll/loader.c | 15 +--------------
- 1 file changed, 1 insertion(+), 14 deletions(-)
-
-diff --git a/dlls/ntdll/loader.c b/dlls/ntdll/loader.c
-index c4008b93357..e8c819e6e73 100644
---- a/dlls/ntdll/loader.c
-+++ b/dlls/ntdll/loader.c
-@@ -87,7 +87,7 @@ const WCHAR windows_dir[] = L"C:\\windows";
- const WCHAR system_dir[] = L"C:\\windows\\system32\\";
-
- /* system search path */
--static const WCHAR system_path[] = L"C:\\windows\\system32;C:\\windows\\system;C:\\windows;C:\\Program Files (x86)\\Steam";
-+static const WCHAR system_path[] = L"C:\\windows\\system32;C:\\windows\\system;C:\\windows";
-
- static BOOL is_prefix_bootstrap;  /* are we bootstrapping the prefix? */
- static BOOL imports_fixup_done = FALSE;  /* set once the imports have been fixed up, before attaching them */
-@@ -2126,19 +2126,6 @@ static NTSTATUS perform_relocations( void *module, IMAGE_NT_HEADERS *nt, SIZE_T
-     return STATUS_SUCCESS;
- }
-
--static int use_lsteamclient(void)
--{
--    WCHAR env[32];
--    static int use = -1;
--
--    if (use != -1) return use;
--
--    use = !get_env( L"PROTON_DISABLE_LSTEAMCLIENT", env, sizeof(env) ) || *env == '0';
--    if (!use)
--        ERR("lsteamclient disabled.\n");
--    return use;
--}
--
- /*************************************************************************
-  *		build_module
-  *
---
-2.40.0
