@@ -87,6 +87,7 @@ apt-get -y dist-upgrade
 apt-get -y install software-properties-common
 dpkg --add-architecture i386
 apt-get update
+
 # Wine dependencies
 apt-get install -y gcc-10 gcc-multilib g++-10 g++-multilib \
                 g++-mingw-w64-x86-64 g++-mingw-w64-i686 \
@@ -132,12 +133,14 @@ apt-get install -y gcc-10 gcc-multilib g++-10 g++-multilib \
                 x11proto-dev \
                 libdrm-dev libdrm-dev:i386 \
                 libxkbcommon-dev libxkbcommon-dev:i386 \
-                libxcb1-dev libxcb1-dev:i386
+                libxcb1-dev libxcb1-dev:i386 \
+                || echo "FATAL ERROR" && exit 1
 
 # More wine dependencies
 apt-get install -y ccache netbase curl ca-certificates \
 				xserver-xorg-video-dummy xserver-xorg xfonts-base xinit fvwm \
-				winbind fonts-liberation2 fonts-noto-core fonts-noto-cjk pulseaudio
+				winbind fonts-liberation2 fonts-noto-core fonts-noto-cjk pulseaudio \
+                || echo "FATAL ERROR" && exit 1
 
 # Gstreamer codecs
 
@@ -154,13 +157,15 @@ apt-get install -y libgstreamer-plugins-base1.0-dev:amd64 libgstreamer-plugins-b
                     gstreamer1.0-plugins-base:amd64 gstreamer1.0-plugins-good:amd64 \
                     gstreamer1.0-plugins-bad:amd64 gstreamer1.0-plugins-ugly:amd64 \
                     gstreamer1.0-plugins-base:i386 gstreamer1.0-plugins-good:i386 \
-                    gstreamer1.0-plugins-bad:i386 gstreamer1.0-plugins-ugly:i386
+                    gstreamer1.0-plugins-bad:i386 gstreamer1.0-plugins-ugly:i386 \
+                    || echo "FATAL ERROR" && exit 1
 
 # Misc utilities (not sure if fontconfig is required)
-apt-get -y install wget build-essential vim nano fontconfig flex dh-autoreconf
+apt-get -y install wget build-essential vim nano fontconfig flex dh-autoreconf \
+|| echo "FATAL ERROR" && exit 1
 
 # Runtime dependencies
-apt-get -y install lsb-release
+apt-get -y install lsb-release || echo "FATAL ERROR" && exit 1
 apt-get clean
 
 EOF
