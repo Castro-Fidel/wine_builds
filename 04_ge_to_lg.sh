@@ -31,6 +31,7 @@ fi
 
 mv GE-Proton$GE_VERSION/files $PROTON_LG/
 mv GE-Proton$GE_VERSION/PATENTS.AV1 $PROTON_LG/
+mv GE-Proton$GE_VERSION/LICENSE* $PROTON_LG/
 rm -r GE-Proton$GE_VERSION
 
 echo "$PROTON_LG" > $PROTON_LG/version
