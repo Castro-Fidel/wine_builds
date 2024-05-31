@@ -22,7 +22,10 @@ export scriptdir="$(dirname "$(readlink -f "${BASH_SOURCE[0]}")")"
 
 if [[ -d "$scriptdir"/wine-tkg/ ]] ; then
 	CUSTOM_SRC_PATH="$scriptdir"/wine-tkg/
-	WINE_FULL_NAME="WINE_LG_$(awk '{print $3}' "$scriptdir/wine-tkg/VERSION")"
+	[[ -z "$WINE_FULL_NAME" ]] && $WINE_FULL_NAME="WINE_LG_$(awk '{print $3}' "$scriptdir/wine-tkg/VERSION")"
+elif [[ -d "$scriptdir"/proton-ge/ ]] ; then
+	CUSTOM_SRC_PATH="$scriptdir"/proton-ge/
+	[[ -z "$WINE_FULL_NAME" ]] && WINE_FULL_NAME="PROTON_LG_$(head -n 1 "$scriptdir/proton-ge/GE_VER")"
 else
 	echo "Source not found."
 	exit 1
@@ -107,6 +110,14 @@ ${BWRAP} dlls/winevulkan/make_vulkan
 ${BWRAP} tools/make_requests
 ${BWRAP} tools/make_specfiles
 ${BWRAP} autoreconf -f
+
+if [[ "$WINE_FULL_NAME" =~ PROTON_LG_* ]] ; then
+	sed -i "s/\"wine-/\"$WINE_FULL_NAME wine-/g" configure
+	sed -i "s/\"wine-/\"$WINE_FULL_NAME wine-/g" configure.ac
+else
+	sed -i "s/TkG Staging Esync Fsync/LG/g" configure
+	sed -i "s/TkG Staging Esync Fsync/LG/g" configure.ac
+fi
 
 export CROSSCC_X32="i686-w64-mingw32-gcc"
 export CROSSCXX_X32="i686-w64-mingw32-g++"
@@ -221,6 +232,10 @@ echo "$WINE_FULL_NAME" > "$RESULT_DIR"/version
 if [[ "$NO_EXTRA" != "1" ]] ; then
 	echo "Copying PATENTS.AV1 to build"
 	cp "${GSTR_RUNTIME_PATH}"/PATENTS.AV1 "$RESULT_DIR"/
+
+	echo "Copying all PROTON license files to build"
+	cp "${GSTR_RUNTIME_PATH}"/LICENSE.OFL "$RESULT_DIR"/
+	cp "${GSTR_RUNTIME_PATH}"/LICENSE "$RESULT_DIR"/
 
 	echo "Copying 64 bit runtime libraries to build"
 	# copy sdl2, faudio, vkd3d, and ffmpeg libraries
