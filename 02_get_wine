@@ -8,8 +8,14 @@ fatal () {
     exit 1
 }
 
-version="$1"
-if [[ ! -z $version ]] ; then
+version="$2"
+if [[ -z $version ]] ; tehn
+    echo "Use: 02_get_wine VESRION"
+    exit 0
+fi
+
+
+if [[ $1 == tkg ]] ; then
 #     git clone https://github.com/Kron4ek/wine-tkg "${SCRIPTS_PATH}/wine-tkg/"
     wget https://github.com/Kron4ek/wine-tkg/archive/refs/tags/$version.tar.gz || fatal
     tar -xf $version.tar.gz || fatal
@@ -17,25 +23,35 @@ if [[ ! -z $version ]] ; then
     mv wine-tkg-$version wine-tkg || fatal
     pushd "${SCRIPTS_PATH}/wine-tkg/" || fatal
 
-    echo -e "-----------------------------------------\nAdding 001-wine-tkg-to-lg patches:\n"
+    echo -e "-----------------------------------------\nAdding 001-wine-tkg-to-lg patches:"
     patch -Np1 < ../patches/001-wine-tkg-to-lg.patch || fatal
 
-#     echo -e "-----------------------------------------\nAdding dualsense patches:\n"
-#     patch -Np1 < ../patches/dualsense/0001-pending-review-mmdevapi-support-VT_CLSID-for-contain.patch || fatal
-#     patch -Np1 < ../patches/dualsense/0002-pending-review-mmdevapi-decode-ContainerId-property-.patch || fatal
-#     patch -Np1 < ../patches/dualsense/0003-pending-review-mmdevapi-copy-ContainerID-from-audio-.patch || fatal
-#     patch -Np1 < ../patches/dualsense/0004-pending-review-mmdevapi-Invalidate-ContainerID-of-un.patch || fatal
-#     patch -Np1 < ../patches/dualsense/0005-draft-winepulse-Store-PulseAudio-device-s-sysfs-path.patch || fatal
-#     patch -Np1 < ../patches/dualsense/0006-draft-winepulse-Add-support-for-containerId-property.patch || fatal
-#     patch -Np1 < ../patches/dualsense/0007-draft-winebus-store-container-sysfs-path-from-udev-b.patch || fatal
-#     patch -Np1 < ../patches/dualsense/0008-draft-winebus-implement-BusQueryContainerID-based-on.patch || fatal
-#     patch -Np1 < ../patches/dualsense/0009-WiP-Implement-SetupDiGetDeviceInterfacePropertyW-for.patch || fatal
+elif [[ $1 == ge ]] ; then
+    git clone --recurse-submodules http://github.com/gloriouseggroll/proton-ge-custom || fatal
+    pushd ${SCRIPTS_PATH}/proton-ge-custom || fatal
+    git log -1 | grep GE-Proton | awk -F'GE-Proton' '{print $2}' > ${SCRIPTS_PATH}/proton-ge-custom/wine/GE_VER
+    popd
+    mv "${SCRIPTS_PATH}/proton-ge-custom/wine" "${SCRIPTS_PATH}/proton-ge" || fatal
+    rm -fr "${SCRIPTS_PATH}/proton-ge-custom" || fatal
 
-    sed -i "s/TkG Staging Esync Fsync/LG/g" configure || fatal
-    sed -i "s/TkG Staging Esync Fsync/LG/g" configure.ac || fatal
+    echo -e "-----------------------------------------\nAdding De-steamify-proton-s-WINE_for_PortProton patches:\n"
+    patch -Np1 < ../patches/01-De-steamify-proton-s-WINE_for_PortProton.patch || fatal
 
+    echo -e "-----------------------------------------\nAdding proton-exp-9.0 patches:\n"
+    patch -Np1 < ../patches/proton-exp-9.0.patch || fatal
+
+    echo -e "-----------------------------------------\nAdding dualsense patches:\n"
+    patch -Np1 < ../patches/dualsense/0001-pending-review-mmdevapi-support-VT_CLSID-for-contain.patch || fatal
+    patch -Np1 < ../patches/dualsense/0002-pending-review-mmdevapi-decode-ContainerId-property-.patch || fatal
+    patch -Np1 < ../patches/dualsense/0003-pending-review-mmdevapi-copy-ContainerID-from-audio-.patch || fatal
+    patch -Np1 < ../patches/dualsense/0004-pending-review-mmdevapi-Invalidate-ContainerID-of-un.patch || fatal
+    patch -Np1 < ../patches/dualsense/0005-draft-winepulse-Store-PulseAudio-device-s-sysfs-path.patch || fatal
+    patch -Np1 < ../patches/dualsense/0006-draft-winepulse-Add-support-for-containerId-property.patch || fatal
+    patch -Np1 < ../patches/dualsense/0007-draft-winebus-store-container-sysfs-path-from-udev-b.patch || fatal
+    patch -Np1 < ../patches/dualsense/0008-draft-winebus-implement-BusQueryContainerID-based-on.patch || fatal
+    patch -Np1 < ../patches/dualsense/0009-WiP-Implement-SetupDiGetDeviceInterfacePropertyW-for.patch || fatal
 else
-    echo "Use: 02_get_wine VESRION"
+    echo "Use: 02_get_wine < tkg | ge >"
     exit 0
 fi
 
