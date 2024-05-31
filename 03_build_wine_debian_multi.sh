@@ -22,10 +22,14 @@ export scriptdir="$(dirname "$(readlink -f "${BASH_SOURCE[0]}")")"
 
 if [[ -d "$scriptdir"/wine-tkg/ ]] ; then
 	CUSTOM_SRC_PATH="$scriptdir"/wine-tkg/
-	[[ -z "$WINE_FULL_NAME" ]] && $WINE_FULL_NAME="WINE_LG_$(awk '{print $3}' "$scriptdir/wine-tkg/VERSION")"
+	if [[ -z "$WINE_FULL_NAME" ]] ; then
+		$WINE_FULL_NAME="WINE_LG_$(awk '{print $3}' "$scriptdir/wine-tkg/VERSION" | sed 's/\./-/')"
+	fi
 elif [[ -d "$scriptdir"/proton-ge/ ]] ; then
 	CUSTOM_SRC_PATH="$scriptdir"/proton-ge/
-	[[ -z "$WINE_FULL_NAME" ]] && WINE_FULL_NAME="PROTON_LG_$(head -n 1 "$scriptdir/proton-ge/GE_VER")"
+	if [[ -z "$WINE_FULL_NAME" ]] ; then
+		WINE_FULL_NAME="PROTON_LG_$(head -n 1 "$scriptdir/proton-ge/GE_VER" | sed 's/\./-/')"
+	fi
 else
 	echo "Source not found."
 	exit 1
