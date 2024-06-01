@@ -8,14 +8,12 @@ fatal () {
     exit 1
 }
 
-version="$2"
-if [[ -z $version ]] ; tehn
-    echo "Use: 02_get_wine VESRION"
-    exit 0
-fi
-
-
 if [[ $1 == tkg ]] ; then
+    version="$2"
+    if [[ -z $version ]] ; tehn
+        echo "Use: 02_get_wine tkg VESRION"
+        exit 0
+    fi
 #     git clone https://github.com/Kron4ek/wine-tkg "${SCRIPTS_PATH}/wine-tkg/"
     wget https://github.com/Kron4ek/wine-tkg/archive/refs/tags/$version.tar.gz || fatal
     tar -xf $version.tar.gz || fatal
