@@ -10,7 +10,7 @@ fatal () {
 
 if [[ $1 == tkg ]] ; then
     version="$2"
-    if [[ -z $version ]] ; tehn
+    if [[ -z $version ]] ; then
         echo "Use: 02_get_wine tkg VESRION"
         exit 0
     fi
