@@ -1,12 +1,15 @@
 ## Build WINE_LG for PortProton
 
 Create chroot debian:
+
 ```# 01_create_debian_multi.sh```
 
 Get source WINE_TKG and patchs it:
-```$ ./02_get_wine tkg```
+
+```$ ./02_get_wine < tkg | ge >```
 
 Build from sources:
+
 ```$ 03_build_wine_debian_multi.sh```
 
 ### Links to the sources
@@ -21,4 +24,4 @@ Build from sources:
 * https://github.com/varmd/wine-wayland
 * https://github.com/Kron4ek/wine-wayland
 * https://gitlab.collabora.com/alf/wine/-/tree/wayland
-
+* https://github.com/ClearlyClaire/wine
