@@ -31,6 +31,7 @@ elif [[ $1 == ge ]] ; then
     popd
     mv "${SCRIPTS_PATH}/proton-ge-custom/wine" "${SCRIPTS_PATH}/proton-ge" || fatal
     rm -fr "${SCRIPTS_PATH}/proton-ge-custom" || fatal
+    cd "${SCRIPTS_PATH}/proton-ge" || fatal
 
     echo -e "-----------------------------------------\nAdding De-steamify-proton-s-WINE_for_PortProton patches:\n"
     patch -Np1 < ../patches/01-De-steamify-proton-s-WINE_for_PortProton.patch || fatal
