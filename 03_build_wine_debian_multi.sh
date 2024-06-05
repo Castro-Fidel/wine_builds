@@ -250,8 +250,10 @@ if [[ "$NO_EXTRA" != "1" ]] ; then
 	cp -R "${GSTR_RUNTIME_PATH}"/lib32/* "$RESULT_DIR"/lib/
 fi
 
-echo "Copying proton fonts to build"
-cp -R ${GSTR_RUNTIME_PATH}/proton-fonts "$RESULT_DIR"/share/fonts
+if [[ "$WINE_FULL_NAME" =~ PROTON_LG_* ]] ; then
+	echo "Copying proton fonts to build"
+	cp -R ${GSTR_RUNTIME_PATH}/proton-fonts "$RESULT_DIR"/share/fonts
+fi
 
 echo "Cleaning include files from build"
 rm -rf "$RESULT_DIR"/include
