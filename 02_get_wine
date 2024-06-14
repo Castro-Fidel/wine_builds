@@ -24,6 +24,7 @@ if [[ $1 == tkg ]] ; then
     echo -e "-----------------------------------------\nAdding 001-wine-tkg-to-lg patches:"
     patch -Np1 < ../patches/001-wine-tkg-to-lg.patch || fatal
 
+    popd
 elif [[ $1 == ge ]] ; then
     git clone --recurse-submodules http://github.com/gloriouseggroll/proton-ge-custom || fatal
     pushd ${SCRIPTS_PATH}/proton-ge-custom || fatal
@@ -49,12 +50,14 @@ elif [[ $1 == ge ]] ; then
     patch -Np1 < ../patches/dualsense/0007-draft-winebus-store-container-sysfs-path-from-udev-b.patch || fatal
     patch -Np1 < ../patches/dualsense/0008-draft-winebus-implement-BusQueryContainerID-based-on.patch || fatal
     patch -Np1 < ../patches/dualsense/0009-WiP-Implement-SetupDiGetDeviceInterfacePropertyW-for.patch || fatal
+
+#     echo -e "-----------------------------------------\nAdding WINEHAGS patches:\n"
+#     patch -Np1 < ../patches/wine-hags-spoof.patch || fatal
 else
     echo "Use: 02_get_wine < tkg | ge >"
     exit 0
 fi
 
 echo -e "\nDone\n"
-popd
 
 # ${SCRIPTS_PATH}/03_build_wine_debian_multi.sh
