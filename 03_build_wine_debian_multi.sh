@@ -38,7 +38,7 @@ export WINE_FULL_NAME CUSTOM_SRC_PATH
 export BUILD_DIR="$scriptdir"/build
 export GSTR_RUNTIME_PATH="$scriptdir"/extra/
 export BOOTSTRAP_PATH=/opt/chroots_bullseye/bullseye_x86_64_chroot
-export WINE_BUILD_OPTIONS="--disable-tests --with-x --with-mingw --with-gstreamer --disable-winemenubuilder --disable-win16 --without-unwind"
+export WINE_BUILD_OPTIONS="--disable-tests --with-x --with-mingw --with-gstreamer --disable-winemenubuilder --disable-win16"
 
 export USE_CCACHE="true"
 
@@ -275,7 +275,7 @@ tar -xf "$RESULT_DIR"/share/wine/mono/wine-mono-$WINE_MONO-x86.tar.xz -C "$RESUL
 rm "$RESULT_DIR"/share/wine/mono/wine-mono-$WINE_MONO-x86.tar.xz
 
 echo -e "\nCompilation complete\n\nCreating and compressing archives..."
-tar -c -I 'xz -9 -T0' -f "${scriptdir}/$WINE_FULL_NAME.tar.xz" "$WINE_FULL_NAME"
+tar -c -I 'xz --memlimit=8000MiB -9 -T0' -f "${scriptdir}/$WINE_FULL_NAME.tar.xz" "$WINE_FULL_NAME"
 
 end=$(date +%s)
 seconds=$(echo "$end - $start" | bc)
