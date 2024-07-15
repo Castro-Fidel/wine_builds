@@ -24,21 +24,27 @@ if [[ $1 == tkg ]] ; then
     echo -e "-----------------------------------------\nAdding 001-wine-tkg-to-lg patches:"
     patch -Np1 < ../patches/001-wine-tkg-to-lg.patch || fatal
 
-    popd
+    popd || fatal
 elif [[ $1 == ge ]] ; then
-    git clone --recurse-submodules http://github.com/gloriouseggroll/proton-ge-custom || fatal
-    pushd ${SCRIPTS_PATH}/proton-ge-custom || fatal
-    git log -1 | grep GE-Proton | awk -F'GE-Proton' '{print $2}' > ${SCRIPTS_PATH}/proton-ge-custom/wine/GE_VER
-    popd
-    mv "${SCRIPTS_PATH}/proton-ge-custom/wine" "${SCRIPTS_PATH}/proton-ge" || fatal
-    rm -fr "${SCRIPTS_PATH}/proton-ge-custom" || fatal
+    if [[ ! -d "${SCRIPTS_PATH}/proton-ge" ]] ; then
+        git clone --recurse-submodules http://github.com/gloriouseggroll/proton-ge-custom || fatal
+        mv "${SCRIPTS_PATH}/proton-ge-custom/wine" "${SCRIPTS_PATH}/proton-ge" || fatal
+        pushd "${SCRIPTS_PATH}/proton-ge-custom" || fatal
+        git log -1 | grep GE-Proton | awk -F'GE-Proton' '{print $2}' > ${SCRIPTS_PATH}/proton-ge/GE_VER || fatal
+        popd || fatal
+        cp -fr "${SCRIPTS_PATH}/proton-ge" "${SCRIPTS_PATH}/proton-ge-bak"
+        rm -fr "${SCRIPTS_PATH}/proton-ge-custom" || fatal
+    fi
+
     cd "${SCRIPTS_PATH}/proton-ge" || fatal
 
     echo -e "-----------------------------------------\nAdding De-steamify-proton-s-WINE_for_PortProton patches:\n"
     patch -Np1 < ../patches/01-De-steamify-proton-s-WINE_for_PortProton.patch || fatal
 
-    echo -e "-----------------------------------------\nAdding proton-exp-9.0 patches:\n"
-    patch -Np1 < ../patches/proton-exp-9.0.patch || fatal
+#     echo -e "-----------------------------------------\nAdding proton-9.0 patches:\n"
+#     patch -Np1 < ../patches/proton-9.0.patch || fatal
+    sed -i '/media-converter/d' "${SCRIPTS_PATH}/proton-ge/dlls/winegstreamer/Makefile.in"
+    sed -i 's/wma_decoder.c \\/wma_decoder.c/' "${SCRIPTS_PATH}/proton-ge/dlls/winegstreamer/Makefile.in"
 
     echo -e "-----------------------------------------\nAdding dualsense patches:\n"
     patch -Np1 < ../patches/dualsense/0001-pending-review-mmdevapi-support-VT_CLSID-for-contain.patch || fatal
