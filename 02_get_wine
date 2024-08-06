@@ -41,10 +41,8 @@ elif [[ $1 == ge ]] ; then
     echo -e "-----------------------------------------\nAdding De-steamify-proton-s-WINE_for_PortProton patches:\n"
     patch -Np1 < ../patches/01-De-steamify-proton-s-WINE_for_PortProton.patch || fatal
 
-#     echo -e "-----------------------------------------\nAdding proton-9.0 patches:\n"
-#     patch -Np1 < ../patches/proton-9.0.patch || fatal
-    sed -i '/media-converter/d' "${SCRIPTS_PATH}/proton-ge/dlls/winegstreamer/Makefile.in"
-    sed -i 's/wma_decoder.c \\/wma_decoder.c/' "${SCRIPTS_PATH}/proton-ge/dlls/winegstreamer/Makefile.in"
+    echo -e "-----------------------------------------\nAdding proton-exp-new-9.0 patches:\n"
+    patch -Np1 < ../patches/proton-exp-new-9.0.patch || fatal
 
     echo -e "-----------------------------------------\nAdding dualsense patches:\n"
     patch -Np1 < ../patches/dualsense/0001-pending-review-mmdevapi-support-VT_CLSID-for-contain.patch || fatal

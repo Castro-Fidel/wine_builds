@@ -168,6 +168,9 @@ apt-get -y install wget build-essential vim nano fontconfig flex dh-autoreconf \
 apt-get -y install lsb-release || echo "FATAL ERROR" && exit 1
 apt-get clean
 
+# NTSYNC
+wget -O /usr/include/linux/ntsync.h https://raw.githubusercontent.com/zen-kernel/zen-kernel/f787614c40519eb2c8ebdc116b2cd09d46e5ec85/include/uapi/linux/ntsync.h
+
 EOF
 
 	chmod +x "${MAINDIR_CHROOTS}"/prepare_chroot.sh
@@ -175,14 +178,37 @@ EOF
 	mv "${MAINDIR_CHROOTS}"/prepare_chroot.sh "${CHROOT_X64}"/opt
 }
 
-rsync -avz --progress keyring.debian.org::keyrings/keyrings/ /usr/share/keyrings/
+create_build_scripts_update () {
 
-debootstrap --arch amd64 $CHROOT_DISTRO "${CHROOT_X64}" $CHROOT_MIRROR
-[[ "$?" != 0 ]] && echo "error: create 64_chroot" && exit 1
+	cat <<EOF > "${MAINDIR_CHROOTS}"/prepare_chroot.sh
+#!/bin/bash
 
-create_build_scripts
+apt-get update
+apt-get -y upgrade
+apt-get -y dist-upgrade
+apt-get autoremove -y
+apt-get clean -y
 
-prepare_chroot 64
+# NTSYNC
+wget -O /usr/include/linux/ntsync.h https://raw.githubusercontent.com/zen-kernel/zen-kernel/f787614c40519eb2c8ebdc116b2cd09d46e5ec85/include/uapi/linux/ntsync.h
+
+EOF
+
+	chmod +x "${MAINDIR_CHROOTS}"/prepare_chroot.sh
+	echo "MAINDIR_CHROOTS=${MAINDIR_CHROOTS}"
+	mv "${MAINDIR_CHROOTS}"/prepare_chroot.sh "${CHROOT_X64}"/opt
+}
+
+if [[ "$1" == "update" ]] ; then
+    create_build_scripts_update
+    prepare_chroot 64
+else
+    rsync -avz --progress keyring.debian.org::keyrings/keyrings/ /usr/share/keyrings/
+    debootstrap --arch amd64 $CHROOT_DISTRO "${CHROOT_X64}" $CHROOT_MIRROR
+    [[ "$?" != 0 ]] && echo "error: create 64_chroot" && exit 1
+    create_build_scripts
+    prepare_chroot 64
+fi
 
 rm "${CHROOT_X64}"/opt/prepare_chroot.sh
 
