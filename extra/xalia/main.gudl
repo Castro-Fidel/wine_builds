@@ -1,0 +1,1330 @@
+﻿/* Default UI description, language subject to change as it develops */
+
+// Control configuration
+root {
+    repeat_initial_delay: 500;
+    repeat_delay: 100;
+    deadzone: 0.2;
+    panels_always_on: true;
+
+    action_on_left_stick: radial_deadzone(repeat_action(
+        menu_move_action or
+        list_move_action or
+        adjust_current_view_action or
+        target_move,
+        repeat_initial_delay, repeat_delay), deadzone);
+    action_on_dpad_left: repeat_action(
+        menu_left_action or
+        list_left_action or
+        adjust_current_view_left_action or
+        ascend_action or
+        target_move_left,
+        repeat_initial_delay, repeat_delay);
+    action_on_dpad_down: repeat_action(
+        menu_down_action or
+        list_down_action or
+        adjust_current_view_down_action or
+        ascend_action or
+        target_move_down,
+        repeat_initial_delay, repeat_delay);
+    action_on_dpad_up: repeat_action(
+        menu_up_action or
+        list_up_action or
+        adjust_current_view_up_action or
+        ascend_action or
+        target_move_up,
+        repeat_initial_delay, repeat_delay);
+    action_on_dpad_right: repeat_action(
+        menu_right_action or
+        list_right_action or
+        adjust_current_view_right_action or
+        ascend_action or
+        target_move_right,
+        repeat_initial_delay, repeat_delay);
+    action_on_A: menu_select_action or
+        list_primary_action or
+        (target_primary_action + exit_panel_action) or
+        target_primary_action or
+        (targeted_element.send_click + exit_panel_action) or
+        targeted_element.send_click or
+        ascend_action;
+    action_on_B: menu_back_action or
+        list_close_action or
+        ascend_action or
+        exit_panel_action or
+        cancel_action or
+        (targeted_element and send_key.esc);
+    action_on_X: list_secondary_action or
+        target_secondary_action;
+    action_on_Y: list_context_menu_action or
+        target_context_menu_action or
+        targeted_element.send_right_click;
+    action_on_start: menu_close_action or
+        ascend_action or
+        menu_open_action or
+        confirm_action or
+        (targeted_element and send_key.enter);
+    action_on_back: ascend_action or
+        repeat_action(target_next, repeat_initial_delay, repeat_delay);
+    action_on_right_stick: radial_deadzone(
+        target_scroll_view_action or
+        target_adjust_value_action or
+        scroll_current_view_action or
+        scroll_targeted_view_action or
+        adjust_current_view_action or
+        targeted_element.send_scroll,
+        deadzone);
+    action_on_LB: tab_left_action;
+    action_on_RB: tab_right_action;
+}
+
+// Application-specific behaviors:
+
+// APPLICATION: Atelier Ryza launcher
+window (class_name == "KOEI_RYZALAUNCHER_WINDOW") {
+    // Buttons malfunction if the mouse isn't hovering on the correct one
+    manual_buttons: true;
+}
+
+button (interactable and parent.parent.class_name == "KOEI_RYZALAUNCHER_WINDOW" and control_id == 1003) { // Play button
+	confirm_action: send_click;
+	target_priority: 1;
+}
+
+// APPLICATION: Bethesda Launchers
+dialog (child_matches(image and x == parent.x and y = parent.y and width == parent.width and height == parent.height))
+{
+    is_bethesda_launcher: true;
+    play_button: child_matches(interactable and height != parent.height and
+        (not parent.play_button or y < parent.play_button.y)) or play_button;
+
+    if (sibling_matches(override_bethesda_launcher))
+    {
+        interactable: false;
+    }
+
+    if (sibling_matches(interact_bethesda_launcher))
+    {
+        interactable: true;
+    }
+}
+
+dialog (not active and visible and
+    sibling_matches(active and dialog and is_bethesda_launcher).pid == pid) {
+	// work around focus sometimes incorrectly reverting to main window on Wine when a sub-subwindow closes
+    override_bethesda_launcher: true;
+    interactable: true;
+}
+
+dialog (active and not visible and
+    sibling_matches(not active and dialog and is_bethesda_launcher).pid == pid) {
+	// work around dialogs sometimes staying focused when hidden in Fallout 3 and NV launchers
+    interact_bethesda_launcher: true;
+    interactable: false;
+}
+
+image (interactable and parent.is_bethesda_launcher and
+    width != parent.width and height != parent.height) {
+
+    if (process_name == "SkyrimSELauncher" and control_id == 1010) {
+        // "Data Files" button is still present in Skyrim Special Edition but invisible and does nothing
+        targetable: false;
+    }
+
+    targetable: true;
+    primary_action:
+        parent.disable_window + // Disable the window so it can't do SC_MOVE which causes problems on Wine
+        parent.send_message(0x201, 0, (y - parent.client_y) * 0x10000 + (x - parent.client_x)) + // WM_LBUTTONDOWN
+        parent.enable_window;
+    if (targetable and this == parent.play_button) {
+        confirm_action: primary_action;
+        target_priority: 1;
+    }
+}
+
+// APPLICATION: EA App
+
+window (uia_class_name == "eax::services::windowing::QmlView") {
+    manual_buttons: true; // buttons do not respond to uia_invoke
+    manual_checkboxes: true; // checkboxes do not respond to uia_invoke
+
+    // We don't get structure change notifications from elements.
+    poll_children: true;
+
+    descendent {
+        if (recurse) {
+            poll_children: true;
+        }
+
+        if (targetable) {
+            poll_uia_bounding_rectangle: true;
+        }
+
+        combo_box {
+            recurse: false; // this can get all the list items which is time-consuming
+
+            primary_action: send_click; // The "Profile Visibility" combo box does not open when invoked
+
+            if (uia_focused and not root.child_matches(uia_class_name == "QQuickWindow" and uia_name == "EADesktop")) {
+                root
+                {
+                    poll_focus: true;
+                }
+
+                in_menu_navigation: true;
+                menu_up_action: send_key.up;
+                menu_down_action: send_key.down;
+                menu_select_action: send_key.enter;
+                // We can't dismiss these with any key other than enter.
+                menu_back_action: send_key.enter;
+                menu_close_action: send_key.enter;
+            }
+        }
+
+        button {
+            poll_uia_enabled: true;
+        }
+
+        if (uia_control_type.custom and previous_sibling.uia_control_type.image and
+            descendent_matches(button and name == "Close") and
+            ancestor_matches(window and active)) {
+            // Popover in EA App
+            is_active_modal: true;
+        }
+    }
+}
+
+window (uia_class_name == "QQuickWindow" and uia_name == "EADesktop") {
+    // The "Profile Visibility" combo box creates a window like this
+
+    in_menu_navigation: true;
+    menu_up_action: send_key.up;
+    menu_down_action: send_key.down;
+
+    // We need to focus some other control because we can't tell this kind of combo box apart from others in EA App that are always open when focused
+    menu_select_action: send_key.enter + root.
+        child_matches(uia_class_name == "eax::services::windowing::QmlView").
+        descendent_matches(not combo_box and not window and uia_keyboard_focusable and set_focus).
+        set_focus;
+    menu_back_action: send_key.enter + root.
+        child_matches(uia_class_name == "eax::services::windowing::QmlView").
+        descendent_matches(not combo_box and not window and uia_keyboard_focusable and set_focus).
+        set_focus;
+    menu_close_action: send_key.enter + root.
+        child_matches(uia_class_name == "eax::services::windowing::QmlView").
+        descendent_matches(not combo_box and not window and uia_keyboard_focusable and set_focus).
+        set_focus;
+}
+
+group (parent.(uia_control_type.custom and parent.uia_class_name == "eax::services::windowing::QmlView")) {
+    // Most controls have reported coordinates offset by the height of the titlebar
+    offset_target_y: parent.child_matches(uia_control_type.button).height;
+}
+
+// APPLICATION: Firefox
+window (uia_class_name == "MozillaWindowClass") {
+    firefox_use_offscreen_menu: true;
+}
+
+if (uia_control_type.(tool_bar or menu_bar or menu_item) and parent.firefox_use_offscreen_menu) {
+    offscreen: false;
+    firefox_use_offscreen_menu: true;
+}
+
+if (process_name == "firefox") {
+    manual_buttons: true;
+
+    if (uia_control_type == undefined) {
+        poll_uia_offscreen: true;
+        targetable: false;
+    }
+
+    if (combo_box and parent.(tool_bar and automation_id == "nav-bar")) {
+        // Navigation box shows up as combo box but expand does nothing
+        primary_action: send_click + show_keyboard;
+    }
+
+    if (button and parent.(tool_bar and automation_id == "TabsToolbar")) {
+        // This is actually in the title bar, so ignore the close button
+        cancel_action: undefined;
+    }
+
+    page_tab {
+        primary_action: msaa_do_default_action;
+    }
+}
+
+menu (class_name == "MozillaDropShadowWindowClass") {
+    in_menu_navigation: true;
+    menu_left_action: send_key.left;
+    menu_down_action: send_key.down;
+    menu_up_action: send_key.up;
+    menu_right_action: send_key.right;
+    menu_select_action: send_key.enter;
+    menu_back_action: send_key.esc;
+    menu_close_action: send_key.esc;
+}
+
+// APPLICATION: GVIM
+
+if (win32_process_name == "gvim") {
+    scroll_bar (horizontal) {
+        adjust_value_action: adjust_scrollbars(this, undefined);
+    }
+    scroll_bar (vertical) {
+        adjust_value_action: adjust_scrollbars(undefined, this);
+    }
+    if (class_name == "Vim") {
+        scrollable: true;
+        scroll_view_action: adjust_scrollbars(
+            child_matches(scroll_bar and horizontal),
+            child_matches(scroll_bar and vertical)
+        );
+    }
+}
+
+// APPLICATION: plasmashell
+
+// TODO: 5.27 should have the panel identifiable by ID
+
+application (name == "plasmashell") {
+    // awful heuristic for now
+    child (not child_matches(layered_pane)) {
+        is_panel: true;
+    }
+}
+
+// APPLICATION: VLC
+layered_pane (spi_application.name == "vlc") {
+    // Buttons along the top of preferences window are checkboxes that do not update the UI on Toggle
+    manual_checkboxes: true;
+}
+
+// APPLICATION: Windows taskbar
+if (is_uia_element and uia_class_name == "Shell_TrayWnd") {
+    manual_buttons: true;
+}
+
+// APPLICATION: Windows terminal
+if (class_name == "TermControl") {
+    recurse: true;
+
+    if (interactable) {
+        targetable: true;
+        primary_action: set_focus + show_keyboard;
+        target_width: scroll_view_width;
+        target_height: scroll_view_height;
+    }
+}
+
+// APPLICATION: X-Blades (launcher)
+if (process_name == "launcher" and ancestor_matches(class_name == "GameLauncherWnd")) {
+	recurse: invisible == false;
+
+    manual_buttons: true;
+    manual_checkboxes: true;
+
+	poll_msaa_state: true;
+
+    if (msaa_role.list) {
+        recurse_method: "msaa_navigate";
+        targetable: false;
+    }
+
+    if (msaa_role.list_item and interactable) {
+        targetable: true;
+    }
+}
+
+// General behaviors:
+
+if (spi_attributes.xalia_ignore)
+{
+    recurse: false;
+    stop: true;
+}
+
+// Menus
+
+root (descendent_matches(in_menu_navigation)) {
+    disable_interactions: true;
+
+    current_menu: descendent_matches(in_menu_navigation);
+
+    menu_move_action: descendent_matches(in_menu_navigation).(map_directions(menu_left_action, menu_down_action, menu_up_action, menu_right_action));
+
+    menu_left_action: descendent_matches(in_menu_navigation).menu_left_action;
+    menu_down_action: descendent_matches(in_menu_navigation).menu_down_action;
+    menu_up_action: descendent_matches(in_menu_navigation).menu_up_action;
+    menu_right_action: descendent_matches(in_menu_navigation).menu_right_action;
+    menu_select_action: descendent_matches(in_menu_navigation).menu_select_action;
+    menu_back_action: descendent_matches(in_menu_navigation).menu_back_action;
+    menu_close_action: descendent_matches(in_menu_navigation).menu_close_action;
+}
+
+// If a menu is open, we shouldn't try to interact with anything else.
+menu (child_matches(spi_state.showing) and (not parent.spi_role.(menu or combo_box) or child_matches(spi_state.selected)))
+{
+    in_menu_navigation: true;
+
+    if (descendent_matches(in_menu_navigation)) {
+        // Use actions from inner-most menu
+
+        menu_up_action: descendent_matches(in_menu_navigation).menu_up_action;
+        menu_down_action: descendent_matches(in_menu_navigation).menu_down_action;
+        menu_right_action: descendent_matches(in_menu_navigation).menu_right_action;
+        menu_left_action: descendent_matches(in_menu_navigation).menu_left_action;
+        menu_select_action: descendent_matches(in_menu_navigation).menu_select_action;
+        menu_back_action: descendent_matches(in_menu_navigation).menu_back_action;
+        menu_close_action: descendent_matches(in_menu_navigation).menu_close_action;
+    }
+
+    // Use keyboard interaction for this if possible, it's probably less janky than going through AT-SPI
+    menu_up_action: send_key.up or
+        child_matches(spi_state.selected).previous_sibling_matches(spi_state.(sensitive and visible and showing) and spi_role.(menu or menu_item or check_menu_item or radio_menu_item)).spi_select or
+        last_child_matches(spi_state.(sensitive and visible and showing) and spi_role.(menu or menu_item or check_menu_item or radio_menu_item)).spi_select;
+    menu_down_action: send_key.down or
+        child_matches(spi_state.selected).next_sibling_matches(spi_state.(sensitive and visible and showing) and spi_role.(menu or menu_item or check_menu_item or radio_menu_item)).spi_select or
+        first_child_matches(spi_state.(sensitive and visible and showing) and spi_role.(menu or menu_item or check_menu_item or radio_menu_item)).spi_select;
+
+    // Open a menu if possible, otherwise go to the "next" menu
+    menu_right_action: send_key.right or
+        child_matches(spi_state.selected and spi_role.menu).spi_action.click or
+        ancestor_matches(spi_role.menu_bar).child_matches(spi_state.selected).(
+            next_sibling_matches(sensitive and visible and showing) or
+            first_sibling_matches(sensitive and visible and showing)
+        ).spi_action.click;
+    // We can't really hide a menu, but we can deselect its child which (based on the
+    // logic above) will mean we no longer treat it as open, and will hide its children.
+    menu_left_action: send_key.left or
+        (parent.spi_role.menu and spi_clear_selection) or
+        ancestor_matches(spi_role.menu_bar).child_matches(spi_state.selected).(
+            previous_sibling_matches(sensitive and visible and showing) or
+            last_sibling_matches(sensitive and visible and showing)
+        ).spi_action.click;
+    menu_select_action: send_key.enter or child_matches(spi_state.selected).click;
+    if (parent.spi_role.menu)
+    {
+        menu_back_action: send_key.left or spi_clear_selection;
+    }
+    menu_back_action: send_key.escape or
+        (parent.spi_role.(menu or menu_bar) and spi_deselect) or 
+        root.this_or_descendent_matches(spi_role.combo_box and child_matches(spi_role.menu and spi_state.showing)).spi_action.press;
+    menu_close_action: send_key.escape or
+        this_or_ancestor_matches(parent.spi_role.menu_bar).spi_deselect or
+        root.this_or_descendent_matches(spi_role.combo_box and child_matches(spi_role.menu and spi_state.showing)).spi_action.press;
+}
+
+// Qt combo boxes contain lists, not menus like in Gtk
+combo_box (child_matches(spi_role.list and (spi_state.focused or child_matches(spi_state.focused))))
+{
+    in_menu_navigation: true;
+
+    // We can't manipulate the menu through AT-SPI, we have to use the keyboard
+    menu_up_action: send_key.up;
+    menu_down_action: send_key.down;
+    menu_select_action: send_key.enter;
+    menu_back_action: send_key.esc or spi_action.Press;
+    menu_close_action: send_key.esc or spi_action.Press;
+}
+
+combo_box (uia_expand_collapse_state.expanded) {
+    in_menu_navigation: true;
+
+    menu_up_action: send_key.up;
+    menu_down_action: send_key.down;
+    menu_select_action: send_key.enter;
+    menu_back_action: uia_collapse or send_key.esc;
+    menu_close_action: uia_collapse or send_key.esc;
+}
+
+// Win32 Combo list boxes
+if (is_hwnd_combo_box and expanded) {
+    in_menu_navigation: true;
+
+    menu_up_action: send_key.up;
+    menu_down_action: send_key.down;
+    menu_select_action: collapse;
+    menu_back_action: collapse;
+    menu_close_action: collapse;
+}
+
+if (parent.is_root and uia_class_name == "ComboLBox"
+    and visible and enabled) {
+    in_menu_navigation: true;
+
+    menu_up_action: send_key.up;
+    menu_down_action: send_key.down;
+    menu_select_action: send_key.enter;
+    menu_back_action: send_key.esc;
+    menu_close_action: send_key.esc;
+}
+
+// Qt/AT-SPI2 menus
+popup_menu (spi_state.showing)
+{
+    in_menu_navigation: true;
+
+    // We can't manipulate the menu through AT-SPI, we have to use the keyboard
+    menu_up_action: send_key.up;
+    menu_down_action: send_key.down;
+    menu_left_action: send_key.left;
+    menu_right_action: send_key.right;
+    menu_select_action: send_key.enter;
+    menu_back_action: send_key.esc or parent.spi_action.ShowMenu;
+    menu_close_action: send_key.esc or parent.spi_action.ShowMenu;
+}
+
+// UI Automation menubars
+root (win32_active_element.uia_class_name == "#32768")
+{
+    // Active menu, this doesn't normally happen and suggests Alt to dismiss may not work if the normal menu loop isn't used
+    in_menu_navigation: true;
+
+    menu_up_action: send_key.up;
+    menu_down_action: send_key.down;
+    menu_left_action: send_key.left;
+    menu_right_action: send_key.right;
+    menu_select_action: send_key.enter;
+	menu_back_action: send_key.esc;
+	menu_close_action: send_key.esc;
+}
+
+root (uia_menu_mode or uia_in_menu or
+    child_matches(uia_class_name == "Qt5QWindowPopupDropShadowSaveBits"))
+{
+    in_menu_navigation: true;
+
+    menu_up_action: send_key.up;
+    menu_down_action: send_key.down;
+    menu_left_action: send_key.left;
+    menu_right_action: send_key.right;
+    menu_select_action: send_key.enter;
+    // On Windows, pressing Escape hides the menu but stays in "menu mode", so we must use Alt to dismiss
+    if (uia_in_submenu) {
+        menu_back_action: send_key.esc;
+    }
+    menu_back_action: send_key.alt;
+    menu_close_action: send_key.alt;
+}
+
+// Combo boxes contain subcontrols we don't want to directly navigate to
+if (combo_box and not uia_expand_collapse_state.leaf_node)
+{
+    stop_interactable: true;
+}
+
+// We have a separate mechanism for interacting with menus
+if (parent.menu)
+{
+    interactable: false;
+}
+
+// Workaround for Windows title bar controls
+if (class_name == "DRAG_BAR_WINDOW_CLASS") {
+    interactable: false;
+}
+
+if (class_name == "TITLE_BAR_SCAFFOLDING_WINDOW_CLASS") {
+    interactable: false;
+}
+
+title_bar (automation_id == "TitleBar") {
+    if (parent.(interactable and not stop_interactable)) {
+        // For some reason the standard Win32 titlebar is offscreen
+        interactable: true;
+    }
+}
+
+if (class_name == "CtryNotifySink") {
+    // Seen in Windows Explorer, seems to be some useless blob related to cross-toolkit embedding
+    interactable: false;
+}
+
+// Lists and tables
+
+root (descendent_matches(in_list_navigation)) {
+    current_list: descendent_matches(in_list_navigation);
+
+    list_move_action: descendent_matches(in_list_navigation).(map_directions(list_left_action, list_down_action, list_up_action, list_right_action));
+
+    list_left_action: descendent_matches(in_list_navigation).list_left_action;
+    list_down_action: descendent_matches(in_list_navigation).list_down_action;
+    list_up_action: descendent_matches(in_list_navigation).list_up_action;
+    list_right_action: descendent_matches(in_list_navigation).list_right_action;
+
+    list_primary_action: descendent_matches(in_list_navigation).list_primary_action;
+    list_secondary_action: descendent_matches(in_list_navigation).list_secondary_action;
+    list_context_menu_action: descendent_matches(in_list_navigation).list_context_menu_action;
+    list_close_action: descendent_matches(in_list_navigation).list_close_action;
+}
+
+// Special win32 controls
+if (class_name == "SysListView32" and not is_hwnd_element) {
+    win32_use_listview: ancestor_matches(toplevel_interactable);
+    targetable: false;
+    recurse: false;
+    scrollable: false;
+}
+
+if (is_win32_listview) {
+    if (recurse) {
+        if (recurse_all or view.(icon or small_icon) or count_per_page == 0 or count_per_page >= item_count) {
+            win32_child_item_start: 0;
+            win32_child_item_count: item_count;
+        }
+        win32_child_item_start: top_index;
+        win32_child_item_count: count_per_page;
+    }
+}
+
+if (is_win32_listview_item) {
+    if (parent.view.details) {
+        x: parent.header.x + first_sibling.win32_selectbounds_x;
+        y: parent.header.y + parent.header.height +
+            (parent.header.y - parent.y) + // This is the size of the 3d border
+            first_sibling.win32_selectbounds_height * index_in_parent;
+        width: first_sibling.win32_selectbounds_width;
+        height: first_sibling.win32_selectbounds_height;
+    }
+    x: win32_selectbounds_x + parent.x;
+    y: win32_selectbounds_y + parent.y;
+    width: win32_selectbounds_width;
+    height: win32_selectbounds_height;
+}
+
+if (class_name == "SysTabControl32" and not is_hwnd_element) {
+    win32_use_tabcontrol: ancestor_matches(toplevel_interactable);
+    targetable: false;
+    recurse: false;
+}
+
+if (is_win32_tabcontrol_item) {
+    x: parent.x + win32_x;
+    y: parent.y + win32_y;
+    width: win32_width;
+    height: win32_height;
+}
+
+if (is_win32_element and child_matches(is_win32_virtual_scrollbar)) {
+    scrollable: true;
+    no_scrollable_fallback: true;
+
+    hscroll: child_matches(is_win32_virtual_scrollbar and horizontal);
+    vscroll: child_matches(is_win32_virtual_scrollbar and vertical);
+
+    scroll_view_action: adjust_scrollbars(hscroll, vscroll);
+
+    // FIXME: fill in view/pane sizes
+}
+
+if (is_win32_virtual_scrollbar) {
+    if (vertical) {
+        x: parent.x + parent.width - cxvscroll;
+        y: parent.y;
+        width: cxvscroll;
+        height: parent.height - (parent.child_matches(scrollbar and horizontal).height or 0);
+    }
+    x: parent.x;
+    y: parent.y + parent.height - cyhscroll;
+    width: parent.width - (parent.child_matches(scrollbar and vertical).width or 0);
+    height: cyhscroll;
+}
+
+// Top-level objects
+
+if (role.(desktop_frame or application)) {
+    recurse: true;
+}
+
+if (role.(window or frame or dialog or alert or color_chooser or file_chooser or font_chooser or utility))
+{
+    recurse: true;
+}
+
+if (is_spi_element and role.filler) {
+    // This could be a plug/socket which caused some atk versions to crash when GetChildren is called
+    // The crash was introduced in at-spi2-core 2.47.1 and fixed in 2.48.3.
+    // In versions before 2.47.1, GetChildren incorrectly returned no children.
+    // ref: https://gitlab.gnome.org/GNOME/at-spi2-core/-/issues/98
+    recurse_method: "spi_child_at_index";
+}
+
+if (is_msaa_element and (msaa_state == undefined or (invisible and not offscreen))) {
+    // should be ignored per https://learn.microsoft.com/en-us/windows/win32/winauto/object-state-constants
+    recurse: false;
+}
+
+// List children of containers
+if (role.(filler or internal_frame or panel or html_container or
+              layered_pane or option_pane or root_pane or scroll_pane or
+              split_pane or table_cell or toolbar or
+              viewport or embedded or document_frame or
+              section or page or form or table_row or document_web or grouping
+              or info_bar or page_tab or page_tab_list or menu_bar or menu or
+              combo_box or menu_item or pane or group or document or tree_table or
+              toggle_button or list_box or list or table or title_bar or
+              tree)) {
+    recurse: true;
+}
+
+tree_item (expanded) {
+    recurse: true;
+}
+
+if (spi_role.(table or tree_table) and spi_application.toolkit_name == "gtk" and recurse) {
+    // GTK tables do not send update events for children
+    poll_children: true;
+}
+
+if (is_spi_element and spi_application.toolkit_name == "Qt" and recurse) {
+    // Qt on AT-SPI2 doesn't seem to send tree update events
+    poll_children: true;
+}
+
+if (is_uia_element and uia_control_type == undefined and msaa_role.(border or client)) {
+    // Origin client has a lot of elements like this
+    recurse: true;
+}
+
+if (is_uia_element and uia_control_type.custom and msaa_role.(push_button or client)) {
+    // EA App has container controls that look like this
+    recurse: true;
+}
+
+if (is_uia_element and uia_control_type.(text or list_item) and toolkit == "Qt") {
+    // In Qt web views, these can contain edit boxes
+    recurse: true;
+}
+
+// Required to determine when a combo box is open in Qt
+list (parent.spi_role.combo_box and spi_application.toolkit_name == "Qt")
+{
+    recurse: true;
+}
+
+window (uia_class_name == "ApplicationFrameWindow" or uia_framework_id == "XAML") {
+    application_supports_gamepad: true;
+}
+
+window (framework_id == "Slate") { // Unreal Engine's GUI toolkit
+    application_supports_gamepad: true;
+}
+
+if (application_supports_gamepad) {
+    interactable: false;
+    toplevel_interactable: false;
+}
+
+if (toplevel_interactable or is_active_modal) {
+    deepest_modal: descendent_matches(is_active_modal).deepest_modal or this;
+}
+
+if (toplevel_interactable and not root.disable_interactions and deepest_modal == this and
+    not root.current_view) {
+    interactable: true;
+}
+
+if (is_active_modal and not root.disable_interactions and root.current_view == this) {
+    interactable: true;
+}
+
+// We normally should only consider the active window when searching for controls to interact with
+if (active and
+    (window or parent.(spi_role.application or is_root)) and // regular controls can be active
+    not root.in_panel_mode) {
+    toplevel_interactable: true;
+    recurse: true;
+}
+
+// Recursive navigation
+
+descend_action: this.assign("is_current_view", true);
+
+if (is_current_view) {
+    is_active_modal: true;
+    targetable: false;
+}
+
+root {
+    current_view: descendent_matches(toplevel_interactable and deepest_modal.is_current_view).deepest_modal;
+    scroll_current_view_action: wrap_current_view_action(current_view.scroll_view_action);
+    adjust_current_view_action: wrap_current_view_action(current_view.adjust_value_action);
+    adjust_current_view_left_action: wrap_current_view_action(current_view.adjust_value_left_action);
+    adjust_current_view_down_action: wrap_current_view_action(current_view.adjust_value_down_action);
+    adjust_current_view_up_action: wrap_current_view_action(current_view.adjust_value_up_action);
+    adjust_current_view_right_action: wrap_current_view_action(current_view.adjust_value_right_action);
+    ascend_action: wrap_current_view_action(current_view.assign("is_current_view", false));
+}
+
+// Panels
+if (is_panel and (root.in_panel_mode or root.panels_always_on)) {
+    toplevel_interactable: true;
+}
+
+if (root.panels_always_on and ancestor_matches(is_panel)) {
+    target_priority: -1;
+}
+
+root (descendent_matches(is_panel) and not disable_interactions) {
+    if (descendent_matches(active and application_supports_gamepad) and not in_panel_mode) {
+        // We have to deactivate the application to not double gamepad input.
+        toggle_panel_action: assign("activate_on_dismiss_panel", descendent_matches(active)) +
+            assign("in_panel_mode", true) +
+            descendent_matches(is_panel).set_foreground_window;
+    }
+    if (in_panel_mode and activate_on_dismiss_panel.set_foreground_window) {
+        toggle_panel_action: assign("activate_on_dismiss_panel", undefined) +
+            assign("in_panel_mode", false) +
+            activate_on_dismiss_panel.set_foreground_window;
+    }
+    toggle_panel_action: assign("activate_on_dismiss_panel", undefined) + assign("in_panel_mode", not in_panel_mode);
+}
+
+root (not in_panel_mode)
+{
+    enter_panel_action: toggle_panel_action;
+}
+
+root (in_panel_mode) {
+    exit_panel_action: toggle_panel_action;
+}
+
+root (targeted_element and in_panel_mode) {
+    // Do not reactivate original window, because interacting with the panel is likely to do that
+    target_select_action: targeted_element.primary_action + assign("activate_on_dismiss_panel", undefined) + assign("in_panel_mode", false);
+    action_name_A: targeted_element.primary_action_name or "Select";
+}
+
+if (is_spi_element and parent.spi_role.application and spi_attributes.window_type == "dock") {
+    is_panel: true;
+}
+
+if (is_uia_element and uia_class_name == "Shell_TrayWnd") {
+    is_panel: true;
+}
+
+if (uia_control_type.window) {
+    // In UI Automation, "owned" windows (usually dialog boxes) are children of the "owner" window.
+    // We don't want to try to interact with controls in these windows when the owner is the foreground window.
+    interactable: false;
+}
+
+// We'd need an unbroken chain of enabled/visible controls from the active window to interact with
+// a control through the mouse and keyboard, so normally we should only consider those. AT-SPI may
+// let us do things with other controls, but it might be confusing or break applications.
+if (is_spi_element and enabled and sensitive and not parent.stop_interactable and
+    (showing or (spi_application.toolkit_name == "gtk" and not parent.page_tab)) and // GTK doesn't reliably update showing state of child controls when a scrollable pane is scrolled
+        // https://gitlab.gnome.org/GNOME/gtk/-/issues/5511
+    (visible or spi_application.toolkit_name == "Qt") and // Qt doesn't reliably set visible for some reason (or notify about it?)
+    parent.interactable) {
+
+    // Qt combo boxes have a structure like this: tool_bar(text, combo_box(list, text))
+    // That is, the text is duplicated. We want to ignore the extra text box that is outside the combo_box in the tree.
+    text (spi_application.toolkit_name == "Qt" and parent.spi_role.tool_bar and next_sibling.spi_role.combo_box and
+        next_sibling.child_matches(text).spi_path == spi_path) {
+        interactable: false;
+    }
+
+    interactable: true;
+}
+
+page_tab (is_spi_element and spi_application.toolkit_name == "gtk") {
+    // GTK: Page tabs have the sensitive state only when there is more than one tab, but descendents
+    // can still be used. Worse, GTK does not send notifications when the sensitive state updates, so
+    // we can't really use it.
+
+    sensitive: true;
+
+    if (parent.child_count == 1) {
+        targetable: false;
+    }
+}
+
+if (not is_spi_element and parent.interactable and enabled and visible and not parent.stop_interactable) {
+    interactable: true;
+}
+
+// manual_buttons hack
+if (parent.manual_buttons) {
+    manual_buttons: true;
+}
+
+// manual_checkboxes hack
+if (parent.manual_checkboxes) {
+    manual_checkboxes: true;
+}
+
+if (uia_control_type.hyperlink and toolkit == "Qt" and ancestor_matches(uia_control_type.document)) {
+	// uia_invoke doesn't seem to work for links in Qt web views
+    manual_buttons: true;
+}
+
+if (parent.offset_target_x) {
+    offset_target_x: parent.offset_target_x;
+}
+
+if (parent.offset_target_y) {
+    offset_target_y: parent.offset_target_y;
+}
+
+if (class_name == "msctls_trackbar32" and not is_hwnd_element and ancestor_matches(toplevel_interactable)) {
+    win32_use_trackbar: ancestor_matches(toplevel_interactable);
+    targetable: false;
+}
+
+// Scroll panes
+scroll_pane (child_matches(scroll_bar and enabled and sensitive and showing and visible)) {
+    // GTK scrollable pane
+    scrollable: true;
+    no_scrollable_fallback: true;
+
+    hscroll: child_matches(scroll_bar and horizontal and enabled and sensitive and showing and visible);
+    vscroll: child_matches(scroll_bar and vertical and enabled and sensitive and showing and visible);
+
+    scroll_view_action: adjust_scrollbars(hscroll, vscroll);
+
+    if (interactable) {
+        // Do this lazily so we're not polling positions of all scroll panes
+        scroll_target_margin: 0;
+
+        scroll_pane_x: x;
+        scroll_pane_y: y;
+        scroll_pane_width: width;
+        scroll_pane_height: height;
+
+        scroll_view_x: x;
+        scroll_view_y: y;
+        scroll_view_width: width - (vscroll.width or 0);
+        scroll_view_height: height - (hscroll.height or 0);
+    }
+}
+
+filler ((child_count == 2 or child_count == 3) and
+        first_child.(filler and child_count == 1 and first_child.filler) and
+        child_at_index(1).(filler and child_count == 1 and first_child.scroll_bar) and
+        last_child.(filler and child_count == 1 and first_child.scroll_bar))
+{
+    // Qt scrollable pane
+    scrollable: true;
+    no_scrollable_fallback: true;
+
+    // horizontal and vertical states are not set
+    hscroll: child_matches(first_child.scrollbar and x == parent.x).first_child;
+    vscroll: child_matches(first_child.scrollbar and y == parent.y).first_child;
+
+    scroll_view_action: adjust_scrollbars(hscroll, vscroll);
+
+    if (interactable) {
+        // Do this lazily so we're not polling positions of all scroll panes
+        scroll_target_margin: 0;
+
+        scroll_pane_x: x;
+        scroll_pane_y: y;
+        scroll_pane_width: width;
+        scroll_pane_height: height;
+
+        scroll_view_x: x;
+        scroll_view_y: y;
+        scroll_view_width: first_child.width;
+        scroll_view_height: first_child.height;
+    }
+}
+
+scroll_bar (automation_id == "NonClientVerticalScrollBar" or automation_id == "NonClientHorizontalScrollBar" or
+    class_name == "ScrollBar") {
+    // standard win32 scrollbars seem to work best by invoking the thumb buttons, so we need to see the buttons
+    recurse: true;
+    stop_interactable: true;
+
+    if (child_matches(automation_id == "UpButton") and child_matches(automation_id == "DownButton")) {
+        is_win32_scroll_bar: true;
+        up_action: child_matches(automation_id == "UpButton").uia_invoke;
+        down_action: child_matches(automation_id == "DownButton").uia_invoke;
+    }
+}
+
+if (uia_adjust_scroll_container and framework_id == "Win32" and
+    child_matches(is_win32_scroll_bar and (automation_id == "NonClientVerticalScrollBar" or automation_id == "NonClientHorizontalScrollBar")))
+{
+    // UI Automation does a poor job with standard scrollbars, use scroll wheel instead.
+    scrollable: true;
+    no_scrollable_fallback: true;
+
+    hscroll: child_matches(scroll_bar and automation_id == "NonClientHorizontalScrollBar");
+    vscroll: child_matches(scroll_bar and automation_id == "NonClientVerticalScrollBar");
+
+    scroll_view_action: send_scroll;
+
+    if (interactable) {
+        scroll_target_margin: 0;
+
+        scroll_pane_x: x;
+        scroll_pane_y: y;
+        scroll_pane_width: width;
+        scroll_pane_height: height;
+
+        scroll_view_x: x;
+        scroll_view_y: y;
+        scroll_view_width: width - (vscroll.width or 0);
+        scroll_view_height: height - (hscroll.height or 0);
+    }
+}
+
+if (uia_adjust_scroll_container) {
+    scrollable: true;
+    no_scrollable_fallback: true;
+    scroll_view_action: uia_adjust_scroll_container;
+
+    if (interactable) {
+        scroll_target_margin: 0;
+
+        scroll_pane_x: x;
+        scroll_pane_y: y;
+        scroll_pane_width: width;
+        scroll_pane_height: height;
+
+        scroll_view_x: x;
+        scroll_view_y: y;
+        scroll_view_width: width - (child_matches(scroll_bar and vertical).width or 0);
+        scroll_view_height: height - (child_matches(scroll_bar and horizontal).height or 0);
+    }
+}
+
+if (not no_scrollable_fallback and interactable and child_count != 0 and
+    child_matches(scroll_bar and interactable and (
+        (horizontal and y + height - parent.(y + height) > -5) or
+        (vertical and x + width - parent.(x + width) > -5)))) {
+    // Fallback: Element has scrollbars close to edge
+    scrollable: true;
+    
+    hscroll: child_matches(scroll_bar and interactable and horizontal and y + height - parent.(y + height) > -5);
+    vscroll: child_matches(scroll_bar and interactable and vertical and x + width - parent.(x + width) > -5);
+
+    if (hscroll.is_win32_scroll_bar or vscroll.is_win32_scroll_bar) {
+        scroll_view_action: send_scroll;
+    }
+    scroll_view_action: adjust_scrollbars(hscroll, vscroll);
+
+    scroll_target_margin: 0;
+
+    scroll_pane_x: x;
+    scroll_pane_y: y;
+    scroll_pane_width: width;
+    scroll_pane_height: height;
+
+    scroll_view_x: x;
+    scroll_view_y: y;
+    scroll_view_width: width - (vscroll.width or 0);
+    scroll_view_height: height - (hscroll.height or 0);
+}
+
+// Rules for setting borders of targetable elements
+if (targetable or is_current_view) {
+    // "special" rules would go here
+
+    toggle_button (expandable) {
+        // Adjust size so we don't overlap descendents
+        if (first_child.(showing and abs_y) and first_child.abs_y > y) {
+            target_height: first_child.abs_y - abs_y;
+        }
+    }
+
+    split_pane (horizontal and child_count == 2) {
+        // Adjust size to be only the split
+        target_x: first_child.(x + width);
+        target_width: width - first_child.width - last_child.width;
+    }
+
+    split_pane (vertical and child_count == 2) {
+        // Adjust size to be only the split
+        target_y: first_child.(y + height);
+        target_height: height - first_child.height - last_child.height;
+    }
+
+    if (is_spi_element) {
+        // AT-SPI2 makes it practically impossible to monitor a control's position without polling. We get
+        // no notification of window movement. Calling GetExtents with ATSPI_COORD_TYPE_PARENT consistently
+        // gives screen coordinates. The BoundsChanged notification seems to give window-relative coordinates,
+        // but it doesn't do this consistently and doesn't always fire when window-relative coordinates change.
+
+        // If there are any specific cases where it's possible to do this better, we can add them here.
+
+        // Absolute screen coordinates
+        target_x: abs_x + (offset_target_x or 0);
+        target_y: abs_y + (offset_target_y or 0);
+
+        // For some reason, Qt often returns incorrect values when querying width or height in any
+        // coordinate space other than screen. Since we're already polling for absolute position,
+        // it doesn't make much sense to gate this behavior on toolkit.
+        target_width: spi_abs_width;
+        target_height: spi_abs_height;
+    }
+
+    if (is_uia_element or is_win32_element or is_win32_subelement or is_hwnd_element or is_hwnd_subelement or is_msaa_element) {
+        target_x: x + (offset_target_x or 0);
+        target_y: y + (offset_target_y or 0);
+        target_width: width;
+        target_height: height;
+    }
+}
+
+root {
+    cancel_action: descendent_matches(cancel_action).cancel_action;
+    tab_left_action: descendent_matches(tab_left_action).tab_left_action;
+    tab_right_action: descendent_matches(tab_right_action).tab_right_action;
+    menu_open_action: descendent_matches(menu_open_action).menu_open_action;
+    confirm_action: descendent_matches(confirm_action).confirm_action;
+}
+
+root (targeted_element) {
+    target_primary_action: targeted_element.primary_action;
+    target_secondary_action: targeted_element.secondary_action;
+    target_context_menu_action: targeted_element.context_menu_action;
+    target_scroll_view_action: targeted_element.scroll_view_action;
+    target_adjust_value_action: targeted_element.adjust_value_action;
+    target_adjust_value_left_action: targeted_element.adjust_value_left_action;
+    target_adjust_value_down_action: targeted_element.adjust_value_down_action;
+    target_adjust_value_up_action: targeted_element.adjust_value_up_action;
+    target_adjust_value_right_action: targeted_element.adjust_value_right_action;
+    scroll_targeted_view_action: targeted_element.ancestor_matches(scrollable).scroll_view_action;
+}
+
+// Rules that apply to controls in the active window
+if (interactable) {
+    combo_box (not (uia_expand_collapse_state.leaf_node or simple)) {
+        targetable: true;
+
+        primary_action: spi_action.(press or Press) or uia_expand or uia_invoke or do_default_action;
+        primary_action_name: "Select";
+
+        if (child_matches(text_box)) {
+            secondary_action: child_matches(text_box).(focusable and set_focus or send_click)+show_keyboard;
+            secondary_action_name: "Show Keyboard";
+        }
+
+        adjust_value_action: map_directions(undefined, adjust_value_down, adjust_value_up, undefined);
+
+        if (targeted) {
+            adjust_value_down_action: set_focus+send_key.down;
+            adjust_value_up_action: set_focus+send_key.down;
+            adjust_value_down: repeat_action(set_focus+send_key.down, repeat_initial_delay, repeat_delay);
+            adjust_value_up: repeat_action(set_focus+send_key.up, repeat_initial_delay, repeat_delay);
+        }
+    }
+
+    if ((scroll_bar or slider) and not (is_win32_element or is_win32_subelement or spi_state.(vertical or horizontal) or uia_orientation)) {
+        // Qt doesn't set these states
+        vertical: height > width;
+        horizontal: width > height;
+    }
+
+    scroll_bar (is_win32_scroll_bar) {
+        adjust_value_action: send_scroll;
+    }
+
+    if ((scroll_bar or slider or split_pane) and vertical) {
+        targetable: true;
+
+        adjust_value_action: adjust_scrollbars(undefined, this);
+
+        adjust_value_down_action: focusable and (set_focus+send_key.down) or adjust_value(minimum_increment or 25);
+        adjust_value_up_action: focusable and (set_focus+send_key.up) or adjust_value(-(minimum_increment or 25));
+    }
+
+    if ((scroll_bar or slider or split_pane) and horizontal) {
+        targetable: true;
+
+        adjust_value_action: adjust_scrollbars(this, undefined);
+
+        adjust_value_left_action: focusable and (set_focus+send_key.left) or adjust_value(-(minimum_increment or 25));
+        adjust_value_right_action: focusable and (set_focus+send_key.right) or adjust_value(minimum_increment or 25);
+    }
+
+    spin_button {
+        targetable: true;
+
+        primary_action: (focusable and set_focus or send_click)+show_keyboard;
+
+        adjust_value_action: adjust_scrollbars(this, undefined);
+
+        adjust_value_left_action: set_focus+send_key.left;
+        adjust_value_right_action: set_focus+send_key.right;
+    }
+
+    // GTK menus
+    menu (is_spi_element) {
+        targetable: true;
+    }
+
+    // Qt/AT-SPI2 does its menu bars this way
+    menu_item (parent.spi_role.menu_bar and spi_action.ShowMenu)
+    {
+        targetable: true;
+
+        primary_action: spi_action.ShowMenu;
+        primary_action_name: "Click";
+    }
+
+    // UI Automation menu
+    menu_item (is_uia_element and parent.menu_bar)
+    {
+        targetable: true;
+
+        primary_action: uia_invoke or msaa_do_default_action;
+        primary_action_name: "Click";
+    }
+
+    page_tab {
+        targetable: true;
+        primary_action: spi_action.Press or select;
+        primary_action_name: "Select Tab";
+    }
+
+    if ((button or radio_button or hyperlink) and manual_buttons)
+    {
+        targetable: true;
+        primary_action: send_click;
+        primary_action_name: "Click";
+    }
+
+    if (uia_control_type.(button or radio_button or hyperlink)) {
+        targetable: true;
+        primary_action: uia_invoke or msaa_do_default_action or send_click;
+        primary_action_name: "Click";
+    }
+
+    check_box (manual_checkboxes) {
+        targetable: true;
+        primary_action: send_click;
+        primary_action_name: "Toggle";
+    }
+
+    if (uia_control_type.check_box) {
+        targetable: true;
+        primary_action: uia_invoke or msaa_do_default_action;
+        primary_action_name: "Toggle";
+    }
+
+    if ((is_spi_element and spi_role.text) or (is_uia_element and (uia_control_type.edit or
+        (uia_control_type.document and not first_child)))) { // Qt web controls show up as document but aren't really editable
+        targetable: true;
+		if (is_uia_element and acc2_toolkit_name == "Qt" and ancestor_matches(uia_control_type.document)) {
+			// set_focus doesn't seem to work for Qt web views
+			primary_action: send_click+show_keyboard;
+		}
+		primary_action: (focusable and set_focus or send_click)+show_keyboard;
+		primary_action_name: "Show Keyboard";
+    }
+
+    // Tab bar navigation
+
+    // GTK2: Sometimes the initially selected tab does not have the selected state.
+    page_tab (spi_application.toolkit_name == "GAIL" and child_matches(spi_state.showing)) {
+        selected: true;
+    }
+
+    // Qt/AT-SPI2: The selected state is not set, but we can infer it using the sibling layered_pane
+    page_tab (spi_application.toolkit_name == "Qt" and
+        parent.spi_role.page_tab_list and
+        parent.parent.spi_role.filler and
+        parent.first_sibling.spi_role.layered_pane and
+        parent.first_sibling.child_at_index(index_in_parent).spi_state.showing) {
+        selected: true;
+    }
+
+    page_tab (previous_sibling_matches(interactable).(page_tab and selected)) {
+        tab_right_action: primary_action or send_click;
+        tab_right_action_name: spi_name;
+    }
+    page_tab (next_sibling_matches(interactable).(page_tab and selected)) {
+        tab_left_action: primary_action or send_click;
+        tab_left_action_name: spi_name;
+    }
+
+    menu_bar (child_matches(primary_action and (uia_name != "System" or width != height)))
+    {
+        menu_open_action: child_matches(primary_action and (uia_name != "System" or width != height)).primary_action;
+        menu_open_action_name: "Open Menu";
+    }
+
+    button (default or name == "OK" or name == "Run" or name == "Play" or name == "PLAY" or name == "Yes")
+    {
+        confirm_action: primary_action or send_click;
+        confirm_action_name: name;
+    }
+
+    button (name == "Cancel" or (name == "Close" and not parent.title_bar) or name == "No")
+    {
+        cancel_action: primary_action or send_click;
+        cancel_action_name: name;
+    }
+
+    toggle_button {
+        targetable: true;
+    }
+
+    table_cell (parent.table_cell) {
+        // Table cells in GTK can have child table cells that intersect the scrollbar
+        // This is a problem for target navigation as it leads to up/down moving from list items to scrollbar
+
+        targetable: false;
+    }
+
+    if (is_hwnd_listview_item) {
+        targetable: true;
+        if (parent.checkboxes) {
+            primary_action: toggle_checked;
+            secondary_action: send_click;
+        }
+    }
+
+    if (is_hwnd_button and not frame)
+    {
+        targetable: true;
+    }
+
+    if ((table_cell or table_row or list_item) and targetable) {
+        if (expandable and spi_action("expand or contract")) {
+            secondary_action: spi_action("expand or contract");
+        }
+
+        // Actions on table cells don't always do anything
+        primary_action: send_click;
+        secondary_action: send_click + send_click;
+    }
+
+    if (group or panel or frame) {
+        targetable: false;
+    }
+
+    if (focusable and not descendent_matches(targetable)) {
+        // A control being focusable is a good hint that it's something to click on
+        targetable: true;
+    }
+
+    if (spi_action.menu) {
+        context_menu_action: spi_action.menu;
+    }
+
+    table_cell (ancestor_matches(file_chooser)) {
+        // GTK file chooser does not respond to "activate" on table cells
+        primary_action: send_click;
+    }
+
+    if (is_spi_element != false)
+    {
+        // This ignores the old Uia backend
+        if (do_default_action) {
+            primary_action: do_default_action;
+        }
+    }
+
+    if (spi_action.(click or Press or activate or toggle or Toggle)) {
+        primary_action: spi_action.(click or Press or activate or toggle or Toggle);
+    }
+
+    if (adjust_value_action) {
+        primary_action: descend_action;
+    }
+}

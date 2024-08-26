@@ -256,11 +256,17 @@ if [[ "$NO_EXTRA" != "1" ]] ; then
 	echo "Copying 32 bit runtime libraries to build"
 	# copy sdl2, faudio, vkd3d, and ffmpeg libraries
 	cp -R "${GSTR_RUNTIME_PATH}"/lib32/* "$RESULT_DIR"/lib/
+
+	echo "Copying media to build"
+	cp -R "${GSTR_RUNTIME_PATH}"/media "$RESULT_DIR"/share/
 fi
 
 if [[ "$WINE_FULL_NAME" =~ PROTON_LG_* ]] ; then
 	echo "Copying proton fonts to build"
 	cp -R ${GSTR_RUNTIME_PATH}/proton-fonts "$RESULT_DIR"/share/fonts
+
+	echo "Copying xalia to build"
+	cp -R "${GSTR_RUNTIME_PATH}"/xalia "$RESULT_DIR"/share/
 fi
 
 echo "Cleaning include files from build"
