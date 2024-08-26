@@ -178,6 +178,7 @@ LDFLAGS="-L${GSTR_RUNTIME_PATH}/lib64 -Wl,-O1,--sort-common,--as-needed,-rpath-l
 --datadir="$RESULT_DIR"/share \
 --mandir="$RESULT_DIR"/share/man \
 ${WINE_BUILD_OPTIONS} || exit 1
+
 sleep 5
 ${BWRAP} env \
 LD_LIBRARY_PATH="${GSTR_RUNTIME_PATH}/lib64" \

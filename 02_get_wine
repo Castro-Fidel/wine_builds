@@ -43,26 +43,29 @@ elif [[ $1 == ge ]] ; then
         popd || fatal
         cp -fr "${SCRIPTS_PATH}/proton-ge" "${SCRIPTS_PATH}/proton-ge-bak"
         rm -fr "${SCRIPTS_PATH}/proton-ge-custom" || fatal
+
+        cd "${SCRIPTS_PATH}/proton-ge" || fatal
+        rm -f .git
+        git init
+        git add .
+        git commit -m "Commit before patches."
     fi
 
     cd "${SCRIPTS_PATH}/proton-ge" || fatal
 
     echo -e "-----------------------------------------\nAdding De-steamify-proton-s-WINE_for_PortProton patches:\n"
-    patch -Np1 < ../patches/01-De-steamify-proton-s-WINE_for_PortProton.patch || fatal
+    patch -Np1 < ../patches/proton-ge-to-lg.patch
 
-    echo -e "-----------------------------------------\nAdding proton-exp-new-9.0 patches:\n"
-    patch -Np1 < ../patches/proton-exp-new-9.0.patch || fatal
-
-    echo -e "-----------------------------------------\nAdding dualsense patches:\n"
-    patch -Np1 < ../patches/dualsense/0001-pending-review-mmdevapi-support-VT_CLSID-for-contain.patch || fatal
-    patch -Np1 < ../patches/dualsense/0002-pending-review-mmdevapi-decode-ContainerId-property-.patch || fatal
-    patch -Np1 < ../patches/dualsense/0003-pending-review-mmdevapi-copy-ContainerID-from-audio-.patch || fatal
-    patch -Np1 < ../patches/dualsense/0004-pending-review-mmdevapi-Invalidate-ContainerID-of-un.patch || fatal
-    patch -Np1 < ../patches/dualsense/0005-draft-winepulse-Store-PulseAudio-device-s-sysfs-path.patch || fatal
-    patch -Np1 < ../patches/dualsense/0006-draft-winepulse-Add-support-for-containerId-property.patch || fatal
-    patch -Np1 < ../patches/dualsense/0007-draft-winebus-store-container-sysfs-path-from-udev-b.patch || fatal
-    patch -Np1 < ../patches/dualsense/0008-draft-winebus-implement-BusQueryContainerID-based-on.patch || fatal
-    patch -Np1 < ../patches/dualsense/0009-WiP-Implement-SetupDiGetDeviceInterfacePropertyW-for.patch || fatal
+#     echo -e "-----------------------------------------\nAdding dualsense patches:\n"
+#     patch -Np1 < ../patches/dualsense/0001-pending-review-mmdevapi-support-VT_CLSID-for-contain.patch || fatal
+#     patch -Np1 < ../patches/dualsense/0002-pending-review-mmdevapi-decode-ContainerId-property-.patch || fatal
+#     patch -Np1 < ../patches/dualsense/0003-pending-review-mmdevapi-copy-ContainerID-from-audio-.patch || fatal
+#     patch -Np1 < ../patches/dualsense/0004-pending-review-mmdevapi-Invalidate-ContainerID-of-un.patch || fatal
+#     patch -Np1 < ../patches/dualsense/0005-draft-winepulse-Store-PulseAudio-device-s-sysfs-path.patch || fatal
+#     patch -Np1 < ../patches/dualsense/0006-draft-winepulse-Add-support-for-containerId-property.patch || fatal
+#     patch -Np1 < ../patches/dualsense/0007-draft-winebus-store-container-sysfs-path-from-udev-b.patch || fatal
+#     patch -Np1 < ../patches/dualsense/0008-draft-winebus-implement-BusQueryContainerID-based-on.patch || fatal
+#     patch -Np1 < ../patches/dualsense/0009-WiP-Implement-SetupDiGetDeviceInterfacePropertyW-for.patch || fatal
 
 #     echo -e "-----------------------------------------\nAdding WINEHAGS patches:\n"
 #     patch -Np1 < ../patches/wine-hags-spoof.patch || fatal
