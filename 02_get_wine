@@ -25,6 +25,15 @@ if [[ $1 == tkg ]] ; then
     patch -Np1 < ../patches/001-wine-tkg-to-lg.patch || fatal
 
     popd || fatal
+elif [[ $1 == tkg-ntsync ]] ; then
+    git clone https://github.com/Kron4ek/wine-tkg wine -b ntsync
+    mv -f "${SCRIPTS_PATH}/wine" "${SCRIPTS_PATH}/wine-tkg-ntsync"
+    cp -fr "${SCRIPTS_PATH}/wine-tkg-ntsync" "${SCRIPTS_PATH}/wine-tkg-ntsync-bak"
+    pushd "${SCRIPTS_PATH}/wine-tkg-ntsync/" || fatal
+    echo -e "-----------------------------------------\nAdding 001-wine-tkg-to-lg patches:"
+    patch -Np1 < ../patches/001-wine-tkg-to-lg.patch || fatal
+
+    popd || fatal
 elif [[ $1 == ge ]] ; then
     if [[ ! -d "${SCRIPTS_PATH}/proton-ge" ]] ; then
         git clone --recurse-submodules http://github.com/gloriouseggroll/proton-ge-custom || fatal
@@ -58,7 +67,7 @@ elif [[ $1 == ge ]] ; then
 #     echo -e "-----------------------------------------\nAdding WINEHAGS patches:\n"
 #     patch -Np1 < ../patches/wine-hags-spoof.patch || fatal
 else
-    echo "Use: 02_get_wine < tkg | ge >"
+    echo "Use: 02_get_wine < tkg | tkg-ntsync | ge >"
     exit 0
 fi
 

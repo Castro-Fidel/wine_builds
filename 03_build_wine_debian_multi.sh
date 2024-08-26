@@ -25,6 +25,11 @@ if [[ -d "$scriptdir"/wine-tkg/ ]] ; then
 	if [[ -z "$WINE_FULL_NAME" ]] ; then
 		WINE_FULL_NAME="WINE_LG_$(awk '{print $3}' "$CUSTOM_SRC_PATH/VERSION" | sed 's/\./-/')"
 	fi
+elif [[ -d "$scriptdir"/wine-tkg-ntsync/ ]] ; then
+	CUSTOM_SRC_PATH="$scriptdir"/wine-tkg-ntsync/
+	if [[ -z "$WINE_FULL_NAME" ]] ; then
+		WINE_FULL_NAME="WINE_LG_NTSYNC_$(awk '{print $3}' "$CUSTOM_SRC_PATH/VERSION" | sed 's/\./-/')"
+	fi
 elif [[ -d "$scriptdir"/proton-ge/ ]] ; then
 	CUSTOM_SRC_PATH="$scriptdir"/proton-ge/
 	if [[ -z "$WINE_FULL_NAME" ]] ; then
@@ -118,6 +123,9 @@ ${BWRAP} autoreconf -f
 if [[ "$WINE_FULL_NAME" =~ PROTON_LG_* ]] ; then
 	sed -i "s/\"wine-/\"$WINE_FULL_NAME wine-/g" configure
 	sed -i "s/\"wine-/\"$WINE_FULL_NAME wine-/g" configure.ac
+elif [[ "$WINE_FULL_NAME" =~ WINE_LG_NTSYNC* ]] ; then
+	sed -i "s/TkG Staging Esync/LG_NTSYNC/g" configure
+	sed -i "s/TkG Staging Esync/LG_NTSYNC/g" configure.ac
 else
 	sed -i "s/TkG Staging Esync Fsync/LG/g" configure
 	sed -i "s/TkG Staging Esync Fsync/LG/g" configure.ac
@@ -276,6 +284,8 @@ rm "$RESULT_DIR"/share/wine/mono/wine-mono-$WINE_MONO-x86.tar.xz
 
 echo -e "\nCompilation complete\n\nCreating and compressing archives..."
 tar -c -I 'xz --memlimit=8000MiB -9 -T0' -f "${scriptdir}/$WINE_FULL_NAME.tar.xz" "$WINE_FULL_NAME"
+
+sha256sum "${scriptdir}/$WINE_FULL_NAME.tar.xz" > "${scriptdir}/$WINE_FULL_NAME.tar.xz.sha256sum"
 
 end=$(date +%s)
 seconds=$(echo "$end - $start" | bc)
