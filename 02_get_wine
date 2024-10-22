@@ -41,7 +41,7 @@ elif [[ $1 == ge ]] ; then
             echo "Use: 02_get_wine ge VESRION (X-X)"
             exit 0
         fi
-        git clone --depth 1 --branch "GE-Proton$version" --recurse-submodules http://github.com/gloriouseggroll/proton-ge-custom || fatal
+        git clone --branch "GE-Proton$version" --recurse-submodules http://github.com/gloriouseggroll/proton-ge-custom || fatal
         mv "${SCRIPTS_PATH}/proton-ge-custom/wine" "${SCRIPTS_PATH}/proton-ge" || fatal
         pushd "${SCRIPTS_PATH}/proton-ge-custom" || fatal
         git log -1 | grep GE-Proton | awk -F'GE-Proton' '{print $2}' > ${SCRIPTS_PATH}/proton-ge/GE_VER || fatal

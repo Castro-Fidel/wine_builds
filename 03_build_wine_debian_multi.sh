@@ -20,7 +20,12 @@ fi
 
 export scriptdir="$(dirname "$(readlink -f "${BASH_SOURCE[0]}")")"
 
-if [[ -d "$scriptdir"/wine-tkg/ ]] ; then
+if [[ -d "$scriptdir"/winecx/ ]] ; then
+	CUSTOM_SRC_PATH="$scriptdir"/winecx/
+	if [[ -z "$WINE_FULL_NAME" ]] ; then
+		WINE_FULL_NAME="WINE_CX_$(awk '{print $3}' "$CUSTOM_SRC_PATH/VERSION" | sed 's/\./-/')"
+	fi
+elif [[ -d "$scriptdir"/wine-tkg/ ]] ; then
 	CUSTOM_SRC_PATH="$scriptdir"/wine-tkg/
 	if [[ -z "$WINE_FULL_NAME" ]] ; then
 		WINE_FULL_NAME="WINE_LG_$(awk '{print $3}' "$CUSTOM_SRC_PATH/VERSION" | sed 's/\./-/')"

@@ -1,8 +1,8 @@
 diff --git a/dlls/kernelbase/process.c b/dlls/kernelbase/process.c
-index 387ae09..a6d9308 100644
+index abf789d..2edd77e 100644
 --- a/dlls/kernelbase/process.c
 +++ b/dlls/kernelbase/process.c
-@@ -1301,21 +1301,6 @@ HANDLE WINAPI DECLSPEC_HOTPATCH OpenProcess( DWORD access, BOOL inherit, DWORD i
+@@ -1302,21 +1302,6 @@ HANDLE WINAPI DECLSPEC_HOTPATCH OpenProcess( DWORD access, BOOL inherit, DWORD i
      attr.SecurityDescriptor = NULL;
      attr.SecurityQualityOfService = NULL;
  
@@ -25,7 +25,7 @@ index 387ae09..a6d9308 100644
      cid.UniqueThread  = 0;
  
 diff --git a/dlls/ntdll/loader.c b/dlls/ntdll/loader.c
-index 7ad0086..6a2958d 100644
+index 3c55c42..af3af9a 100644
 --- a/dlls/ntdll/loader.c
 +++ b/dlls/ntdll/loader.c
 @@ -90,7 +90,7 @@ const WCHAR windows_dir[] = L"C:\\windows";
@@ -37,7 +37,7 @@ index 7ad0086..6a2958d 100644
  
  static BOOL is_prefix_bootstrap;  /* are we bootstrapping the prefix? */
  static BOOL imports_fixup_done = FALSE;  /* set once the imports have been fixed up, before attaching them */
-@@ -2231,19 +2231,6 @@ static NTSTATUS perform_relocations( void *module, IMAGE_NT_HEADERS *nt, SIZE_T
+@@ -2233,19 +2233,6 @@ static NTSTATUS perform_relocations( void *module, IMAGE_NT_HEADERS *nt, SIZE_T
      return STATUS_SUCCESS;
  }
  
@@ -57,7 +57,7 @@ index 7ad0086..6a2958d 100644
  /*************************************************************************
   *		build_module
   *
-@@ -2254,17 +2241,12 @@ static NTSTATUS build_module( LPCWSTR load_path, const UNICODE_STRING *nt_name,
+@@ -2256,17 +2243,12 @@ static NTSTATUS build_module( LPCWSTR load_path, const UNICODE_STRING *nt_name,
                                DWORD flags, BOOL system, WINE_MODREF **pwm )
  {
      static const char builtin_signature[] = "Wine builtin DLL";
@@ -75,7 +75,7 @@ index 7ad0086..6a2958d 100644
  
      if (!(nt = RtlImageNtHeader( *module ))) return STATUS_INVALID_IMAGE_FORMAT;
  
-@@ -2285,50 +2267,6 @@ static NTSTATUS build_module( LPCWSTR load_path, const UNICODE_STRING *nt_name,
+@@ -2287,50 +2269,6 @@ static NTSTATUS build_module( LPCWSTR load_path, const UNICODE_STRING *nt_name,
  
      update_load_config( *module );
  
@@ -140,7 +140,7 @@ index d068c1a..f1a97dc 100644
      return 0;
  }
 diff --git a/dlls/ntdll/unix/loader.c b/dlls/ntdll/unix/loader.c
-index f8695a7..1c96502 100644
+index 1e05e75..d9b1bc2 100644
 --- a/dlls/ntdll/unix/loader.c
 +++ b/dlls/ntdll/unix/loader.c
 @@ -592,47 +592,12 @@ NTSTATUS exec_wineloader( char **argv, int socketfd, const pe_image_info_t *pe_i
@@ -298,10 +298,10 @@ index f8695a7..1c96502 100644
      debugstr_pc,
  };
 diff --git a/dlls/ntdll/unix/signal_i386.c b/dlls/ntdll/unix/signal_i386.c
-index faf09c0..1751853 100644
+index cdecda2..e9f692f 100644
 --- a/dlls/ntdll/unix/signal_i386.c
 +++ b/dlls/ntdll/unix/signal_i386.c
-@@ -1916,7 +1916,6 @@ static void segv_handler( int signal, siginfo_t *siginfo, void *sigcontext )
+@@ -1921,7 +1921,6 @@ static void segv_handler( int signal, siginfo_t *siginfo, void *sigcontext )
      struct xcontext xcontext;
      ucontext_t *ucontext = sigcontext;
      void *stack = setup_exception_record( sigcontext, &rec, &xcontext );
@@ -309,7 +309,7 @@ index faf09c0..1751853 100644
  
      switch (TRAP_sig(ucontext))
      {
-@@ -1951,12 +1950,6 @@ static void segv_handler( int signal, siginfo_t *siginfo, void *sigcontext )
+@@ -1956,12 +1955,6 @@ static void segv_handler( int signal, siginfo_t *siginfo, void *sigcontext )
          }
          break;
      case TRAP_x86_PAGEFLT:  /* Page fault */
@@ -323,10 +323,10 @@ index faf09c0..1751853 100644
          rec.ExceptionInformation[0] = (ERROR_sig(ucontext) >> 1) & 0x09;
          rec.ExceptionInformation[1] = (ULONG_PTR)siginfo->si_addr;
 diff --git a/dlls/ntdll/unix/signal_x86_64.c b/dlls/ntdll/unix/signal_x86_64.c
-index be9af2c..944bb00 100644
+index 9b05ff2..1c0db88 100644
 --- a/dlls/ntdll/unix/signal_x86_64.c
 +++ b/dlls/ntdll/unix/signal_x86_64.c
-@@ -2276,7 +2276,6 @@ static void segv_handler( int signal, siginfo_t *siginfo, void *sigcontext )
+@@ -2281,7 +2281,6 @@ static void segv_handler( int signal, siginfo_t *siginfo, void *sigcontext )
      EXCEPTION_RECORD rec = { 0 };
      struct xcontext context;
      ucontext_t *ucontext = init_handler( sigcontext );
@@ -334,7 +334,7 @@ index be9af2c..944bb00 100644
  
      rec.ExceptionAddress = (void *)RIP_sig(ucontext);
      save_context( &context, ucontext );
-@@ -2308,12 +2307,6 @@ static void segv_handler( int signal, siginfo_t *siginfo, void *sigcontext )
+@@ -2313,12 +2312,6 @@ static void segv_handler( int signal, siginfo_t *siginfo, void *sigcontext )
          }
          break;
      case TRAP_x86_PAGEFLT:  /* Page fault */
@@ -432,10 +432,10 @@ index e087058..94abe34 100644
      unix_debugstr_pc,
  };
 diff --git a/dlls/winegstreamer/Makefile.in b/dlls/winegstreamer/Makefile.in
-index a26ac0b..71258a3 100644
+index ee1bff4..7196530 100644
 --- a/dlls/winegstreamer/Makefile.in
 +++ b/dlls/winegstreamer/Makefile.in
-@@ -31,11 +31,4 @@ SOURCES = \
+@@ -32,11 +32,4 @@ SOURCES = \
  	wg_transform.c \
  	winegstreamer_classes.idl \
  	wm_reader.c \
@@ -449,10 +449,10 @@ index a26ac0b..71258a3 100644
 -	media-converter/videoconv.c
 +	wma_decoder.c
 diff --git a/dlls/winegstreamer/unixlib.c b/dlls/winegstreamer/unixlib.c
-index a285db2..da8e526 100644
+index 5c2a14e..82cadda 100644
 --- a/dlls/winegstreamer/unixlib.c
 +++ b/dlls/winegstreamer/unixlib.c
-@@ -342,13 +342,6 @@ NTSTATUS wg_init_gstreamer(void *arg)
+@@ -346,13 +346,6 @@ NTSTATUS wg_init_gstreamer(void *arg)
          }
      }
  
@@ -467,61 +467,35 @@ index a285db2..da8e526 100644
  }
  
 diff --git a/dlls/winegstreamer/wg_parser.c b/dlls/winegstreamer/wg_parser.c
-index 1cd44a9..6ed3e4d 100644
+index 2b3e19c..ec7f085 100644
 --- a/dlls/winegstreamer/wg_parser.c
 +++ b/dlls/winegstreamer/wg_parser.c
-@@ -248,20 +248,6 @@ static NTSTATUS wg_parser_stream_get_codec_format(void *args)
-     struct wg_parser_stream_get_codec_format_params *params = args;
-     struct wg_parser_stream *stream = get_stream(params->stream);
+@@ -271,23 +271,6 @@ static NTSTATUS wg_parser_stream_get_codec_format(void *args)
  
+     GST_TRACE("caps %" GST_PTR_FORMAT, stream->current_caps);
+ 
+-    if (stream->current_caps)
 -    {
 -        /* HACK: Return untranscoded codec format for transcoded stream. */
--        struct wg_format untranscoded_format;
+-        GstCaps *caps = gst_caps_copy(stream->current_caps);
 -
--        untranscoded_format = stream->preferred_format;
--        if (get_untranscoded_stream_format(stream->parser->container, stream->number, &untranscoded_format))
+-        if (get_untranscoded_stream_format(stream->parser->container, stream->number, caps))
 -        {
--            *params->format = untranscoded_format;
+-            GST_TRACE("returning caps %" GST_PTR_FORMAT, caps);
+-            wg_format_from_caps(params->format, caps);
+-            gst_caps_unref(caps);
 -            return S_OK;
 -        }
+-        gst_caps_unref(caps);
 -
 -        GST_WARNING("Failed to get untranscoded codec format for stream %u.\n", stream->number);
 -    }
 -
-     *params->format = format_is_compressed(&stream->codec_format) ?
-             stream->codec_format :
-             stream->preferred_format;
-diff --git a/dlls/winegstreamer/wg_source.c b/dlls/winegstreamer/wg_source.c
-index 6e000e3..dc2ef0f 100644
---- a/dlls/winegstreamer/wg_source.c
-+++ b/dlls/winegstreamer/wg_source.c
-@@ -82,23 +82,7 @@ static GstCaps *detect_caps_from_data(const char *url, const void *data, guint s
-     GstCaps *caps;
-     gchar *str;
- 
--    if (!(caps = gst_type_find_helper_for_data_with_extension(NULL, data, size,
--            extension ? extension + 1 : NULL, &probability)))
--    {
--        GST_ERROR("Failed to detect caps for url %s, data %p, size %u", url, data, size);
--        return NULL;
--    }
--
--    str = gst_caps_to_string(caps);
--    if (probability > GST_TYPE_FIND_POSSIBLE)
--        GST_INFO("Detected caps %s with probability %u for url %s, data %p, size %u",
--                str, probability, url, data, size);
--    else
--        GST_FIXME("Detected caps %s with probability %u for url %s, data %p, size %u",
--                str, probability, url, data, size);
--    g_free(str);
--
--    return caps;
-+    return NULL;
- }
- 
- static GstPad *create_pad_with_caps(GstPadDirection direction, GstCaps *caps)
+     if (caps_is_compressed(stream->codec_caps))
+         wg_format_from_caps(params->format, stream->codec_caps);
+     else if (stream->current_caps)
 diff --git a/dlls/winex11.drv/window.c b/dlls/winex11.drv/window.c
-index c4b4307..5b2fd40 100644
+index 1ad38ae..04d428a 100644
 --- a/dlls/winex11.drv/window.c
 +++ b/dlls/winex11.drv/window.c
 @@ -1060,19 +1060,8 @@ static void set_initial_wm_hints( Display *display, Window window )
@@ -547,7 +521,7 @@ index c4b4307..5b2fd40 100644
          XFree( class_hints );
      }
 diff --git a/loader/wine.inf.in b/loader/wine.inf.in
-index 1f4019c..ef4a05b 100644
+index 855351c..50dbde6 100644
 --- a/loader/wine.inf.in
 +++ b/loader/wine.inf.in
 @@ -98,8 +98,7 @@ AddReg=\

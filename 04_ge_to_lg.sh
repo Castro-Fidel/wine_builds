@@ -26,7 +26,7 @@ PROTON_LG=PROTON_LG_$GE_VERSION
 if wget https://github.com/GloriousEggroll/proton-ge-custom/releases/download/GE-Proton$GE_VERSION/GE-Proton$GE_VERSION.tar.gz
 then
 	tar -xf GE-Proton$GE_VERSION.tar.gz
-	rm GE-Proton$GE_VERSION.tar.gz
+	mv GE-Proton$GE_VERSION.tar.gz GE-Proton$GE_VERSION-orig.tar.gz
 fi
 
 mv GE-Proton$GE_VERSION/files $PROTON_LG/
