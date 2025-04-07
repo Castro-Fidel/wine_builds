@@ -27,6 +27,8 @@ if wget https://github.com/GloriousEggroll/proton-ge-custom/releases/download/GE
 then
 	tar -xf GE-Proton$GE_VERSION.tar.gz
 	mv GE-Proton$GE_VERSION.tar.gz GE-Proton$GE_VERSION-orig.tar.gz
+else
+	exit 1
 fi
 
 mv GE-Proton$GE_VERSION/files $PROTON_LG/

@@ -48,7 +48,7 @@ export WINE_FULL_NAME CUSTOM_SRC_PATH
 export BUILD_DIR="$scriptdir"/build
 export GSTR_RUNTIME_PATH="$scriptdir"/extra/
 export BOOTSTRAP_PATH=/opt/chroots_bullseye/bullseye_x86_64_chroot
-export WINE_BUILD_OPTIONS="--disable-tests --with-x --with-mingw --with-gstreamer --disable-winemenubuilder --disable-win16"
+export WINE_BUILD_OPTIONS="--with-x --with-mingw --with-gstreamer --without-ldap --without-oss --disable-winemenubuilder --disable-win16 --disable-tests"
 
 export USE_CCACHE="true"
 
@@ -120,10 +120,14 @@ mkdir -p "$RESULT_DIR"
 start=$(date +%s)
 
 cd "${BUILD_DIR}" || exit 1
-${BWRAP} dlls/winevulkan/make_vulkan
-${BWRAP} tools/make_requests
-${BWRAP} tools/make_specfiles
-${BWRAP} autoreconf -f
+if [[ -f "autogen.sh" ]] ; then
+	${BWRAP} ./autogen.sh
+else
+	${BWRAP} dlls/winevulkan/make_vulkan
+	${BWRAP} tools/make_requests
+	${BWRAP} tools/make_specfiles
+	${BWRAP} autoreconf -f
+fi
 
 if [[ "$WINE_FULL_NAME" =~ PROTON_LG_* ]] ; then
 	sed -i "s/\"wine-/\"$WINE_FULL_NAME wine-/g" configure
@@ -232,19 +236,6 @@ LD_LIBRARY_PATH="${GSTR_RUNTIME_PATH}/lib64" \
 CC="ccache gcc-10" CXX="ccache g++-10" \
 make -j${NCPU} -C build64 install-lib || exit 1
 
-echo "Stripping build"
-find "$RESULT_DIR"/bin -type f -exec strip {} \;
-for _f in "$RESULT_DIR"/{bin,lib,lib64}/{wine/*,*}; do
-	if [[ "$_f" = *.so ]] || [[ "$_f" = *.dll ]]; then
-		strip --strip-unneeded "$_f" || true
-	fi
-done
-for _f in "$RESULT_DIR"/{bin,lib,lib64}/{wine/{x86_64-unix,x86_64-windows,i386-unix,i386-windows}/*,*}; do
-	if [[ "$_f" = *.so ]] || [[ "$_f" = *.dll ]]; then
-		strip --strip-unneeded "$_f" || true
-	fi
-done
-
 echo "$WINE_FULL_NAME" > "$RESULT_DIR"/version
 
 if [[ "$NO_EXTRA" != "1" ]] ; then
@@ -262,17 +253,23 @@ if [[ "$NO_EXTRA" != "1" ]] ; then
 	echo "Copying 32 bit runtime libraries to build"
 	# copy sdl2, faudio, vkd3d, and ffmpeg libraries
 	cp -R "${GSTR_RUNTIME_PATH}"/lib32/* "$RESULT_DIR"/lib/
-
-	echo "Copying media to build"
-	cp -R "${GSTR_RUNTIME_PATH}"/media "$RESULT_DIR"/share/
 fi
 
 if [[ "$WINE_FULL_NAME" =~ PROTON_LG_* ]] ; then
+	echo "Copying media to build"
+	cp -R "${GSTR_RUNTIME_PATH}"/media "$RESULT_DIR"/share/
+
 	echo "Copying proton fonts to build"
 	cp -R ${GSTR_RUNTIME_PATH}/proton-fonts "$RESULT_DIR"/share/fonts
 
 	echo "Copying xalia to build"
 	cp -R "${GSTR_RUNTIME_PATH}"/xalia "$RESULT_DIR"/share/
+
+	echo "Copying 64 bit icu to build"
+	cp -R "${GSTR_RUNTIME_PATH}"/icu64 "$RESULT_DIR"/lib64/icu
+
+	echo "Copying 32 bit icu to build"
+	cp -R "${GSTR_RUNTIME_PATH}"/icu32 "$RESULT_DIR"/lib/icu
 fi
 
 echo "Cleaning include files from build"
@@ -293,6 +290,9 @@ wget https://github.com/madewokherd/wine-mono/releases/download/wine-mono-$WINE_
 
 tar -xf "$RESULT_DIR"/share/wine/mono/wine-mono-$WINE_MONO-x86.tar.xz -C "$RESULT_DIR"/share/wine/mono/
 rm "$RESULT_DIR"/share/wine/mono/wine-mono-$WINE_MONO-x86.tar.xz
+
+echo "Stripping build"
+find "$RESULT_DIR"/ -type f -exec strip --strip-unneeded {} +
 
 echo -e "\nCompilation complete\n\nCreating and compressing archives..."
 tar -c -I 'xz --memlimit=8000MiB -9 -T0' -f "${scriptdir}/$WINE_FULL_NAME.tar.xz" "$WINE_FULL_NAME"
