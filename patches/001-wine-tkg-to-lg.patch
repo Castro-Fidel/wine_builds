@@ -1,8 +1,8 @@
 diff --git a/configure b/configure
-index 0f26e576..d74e081d 100755
+index 3e009ce..6e73a45 100755
 --- a/configure
 +++ b/configure
-@@ -1722,7 +1722,6 @@ enable_wineconsole
+@@ -1749,7 +1749,6 @@ enable_wineconsole
  enable_winedbg
  enable_winedevice
  enable_winefile
@@ -10,7 +10,7 @@ index 0f26e576..d74e081d 100755
  enable_winemine
  enable_winemsibuilder
  enable_winepath
-@@ -24105,7 +24104,6 @@ wine_fn_config_makefile programs/wineconsole enable_wineconsole
+@@ -23315,7 +23314,6 @@ wine_fn_config_makefile programs/wineconsole enable_wineconsole
  wine_fn_config_makefile programs/winedbg enable_winedbg
  wine_fn_config_makefile programs/winedevice enable_winedevice
  wine_fn_config_makefile programs/winefile enable_winefile
@@ -19,10 +19,10 @@ index 0f26e576..d74e081d 100755
  wine_fn_config_makefile programs/winemsibuilder enable_winemsibuilder
  wine_fn_config_makefile programs/winepath enable_winepath
 diff --git a/configure.ac b/configure.ac
-index 4735d5d7..8ccd33bc 100644
+index 21fa0bc..e1f66f8 100644
 --- a/configure.ac
 +++ b/configure.ac
-@@ -3533,7 +3533,6 @@ WINE_CONFIG_MAKEFILE(programs/wineconsole)
+@@ -3552,7 +3552,6 @@ WINE_CONFIG_MAKEFILE(programs/wineconsole)
  WINE_CONFIG_MAKEFILE(programs/winedbg)
  WINE_CONFIG_MAKEFILE(programs/winedevice)
  WINE_CONFIG_MAKEFILE(programs/winefile)
@@ -31,7 +31,7 @@ index 4735d5d7..8ccd33bc 100644
  WINE_CONFIG_MAKEFILE(programs/winemsibuilder)
  WINE_CONFIG_MAKEFILE(programs/winepath)
 diff --git a/dlls/advapi32/advapi.c b/dlls/advapi32/advapi.c
-index 2284e92b..127cec57 100644
+index 2284e92..127cec5 100644
 --- a/dlls/advapi32/advapi.c
 +++ b/dlls/advapi32/advapi.c
 @@ -44,14 +44,15 @@ WINE_DEFAULT_DEBUG_CHANNEL(advapi);
@@ -83,10 +83,10 @@ index 2284e92b..127cec57 100644
  
  /******************************************************************************
 diff --git a/dlls/ntdll/loader.c b/dlls/ntdll/loader.c
-index b2ebb3d8..d35a87c3 100644
+index 6e083ac..9681b18 100644
 --- a/dlls/ntdll/loader.c
 +++ b/dlls/ntdll/loader.c
-@@ -4465,11 +4465,11 @@ void loader_init( CONTEXT *context, void **entry )
+@@ -4539,11 +4539,11 @@ void loader_init( CONTEXT *context, void **entry )
      InitializeObjectAttributes( &staging_event_attr, &staging_event_string, OBJ_OPENIF, NULL, NULL );
      if (NtCreateEvent( &staging_event, EVENT_ALL_ACCESS, &staging_event_attr, NotificationEvent, FALSE ) == STATUS_SUCCESS)
      {
@@ -98,13 +98,13 @@ index b2ebb3d8..d35a87c3 100644
 -        WARN_(winediag)("Wine TkG (staging) %s is a testing version containing experimental patches.\n", wine_get_version());
 +        WARN_(winediag)("Wine LG (staging) %s is a testing version containing experimental patches.\n", wine_get_version());
  
-     RtlAcquirePebLock();
-     InsertHeadList( &tls_links, &NtCurrentTeb()->TlsLinks );
+     NtCurrentTeb()->FlsSlots = fls_alloc_data();
+ 
 diff --git a/dlls/shell32/shellpath.c b/dlls/shell32/shellpath.c
-index 015d7cdd..76b294a4 100644
+index 1a52717..b5a5489 100644
 --- a/dlls/shell32/shellpath.c
 +++ b/dlls/shell32/shellpath.c
-@@ -2638,181 +2638,6 @@ end:
+@@ -2645,181 +2645,6 @@ end:
       debugstr_w(szSrc), debugstr_w(szDest));
      return hr;
  }
@@ -286,7 +286,7 @@ index 015d7cdd..76b294a4 100644
  /******************************************************************************
   * SHGetFolderPathW			[SHELL32.@]
   *
-@@ -3001,10 +2826,6 @@ HRESULT WINAPI SHGetFolderPathAndSubDirW(
+@@ -3008,10 +2833,6 @@ HRESULT WINAPI SHGetFolderPathAndSubDirW(
          goto end;
      }
  
@@ -298,7 +298,7 @@ index 015d7cdd..76b294a4 100644
      ret = SHCreateDirectoryExW(hwndOwner, szBuildPath, NULL);
      if (ret && ret != ERROR_ALREADY_EXISTS)
 diff --git a/loader/wine.inf.in b/loader/wine.inf.in
-index ef990d3c..efda1815 100644
+index 72e1b5f..e445e82 100644
 --- a/loader/wine.inf.in
 +++ b/loader/wine.inf.in
 @@ -72,7 +72,8 @@ AddReg=\
@@ -361,7 +361,7 @@ index ef990d3c..efda1815 100644
  
  [DefaultInstall.Services]
  AddService=BITS,0,BITSService
-@@ -446,6 +452,7 @@ HKLM,%CurrentVersionNT%\AeDebug,"Debugger",2,"winedbg --auto %ld %ld"
+@@ -453,6 +459,7 @@ HKLM,%CurrentVersionNT%\AeDebug,"Debugger",2,"winedbg --auto %ld %ld"
  HKLM,%CurrentVersionNT%\AeDebug,"Auto",2,"1"
  HKCU,Software\Wine\Debug,"RelayExclude",2,"ntdll.RtlEnterCriticalSection;ntdll.RtlTryEnterCriticalSection;ntdll.RtlLeaveCriticalSection;kernel32.48;kernel32.49;kernel32.94;kernel32.95;kernel32.96;kernel32.97;kernel32.98;kernel32.TlsGetValue;kernel32.TlsSetValue;kernel32.FlsGetValue;kernel32.FlsSetValue;kernel32.SetLastError"
  HKCU,Software\Wine\Debug,"RelayFromExclude",2,"winex11.drv;winemac.drv;user32;gdi32;advapi32;kernel32"
@@ -369,7 +369,7 @@ index ef990d3c..efda1815 100644
  
  [DirectX]
  HKLM,Software\Microsoft\DirectX,"Version",,"4.09.00.0904"
-@@ -2422,7 +2429,6 @@ HKLM,%CurrentVersion%\Telephony\Country List\998,"SameAreaRule",,"G"
+@@ -2444,7 +2451,6 @@ HKLM,%CurrentVersion%\Telephony\Country List\998,"SameAreaRule",,"G"
  11,,conhost.exe,-
  11,,services.exe,-
  11,,spoolsv.exe,-
@@ -377,7 +377,7 @@ index ef990d3c..efda1815 100644
  ; registration order matters for these
  11,,msxml.dll
  11,,msxml2.dll
-@@ -2747,7 +2753,6 @@ StartType=3
+@@ -2769,7 +2775,6 @@ StartType=3
  ErrorControl=1
  
  [Services]
@@ -386,11 +386,11 @@ index ef990d3c..efda1815 100644
  HKLM,"System\CurrentControlSet\Services\Eventlog\System","Sources",0x10000,""
  HKLM,"System\CurrentControlSet\Services\Tcpip\Parameters","DataBasePath",,"%12%\etc"
 diff --git a/programs/wineboot/wineboot.c b/programs/wineboot/wineboot.c
-index e217eaf3..7f4bbadb 100644
+index 9ebbd51..04972d2 100644
 --- a/programs/wineboot/wineboot.c
 +++ b/programs/wineboot/wineboot.c
-@@ -1534,37 +1534,6 @@ static BOOL start_services_process(void)
-     return TRUE;
+@@ -1608,42 +1608,6 @@ static void set_wait_dialog_text( HWND hwnd, HWND text, const WCHAR *string )
+     SendMessageW( text, WM_SETTEXT, 0, (LPARAM)string );
  }
  
 -static INT_PTR CALLBACK wait_dlgproc( HWND hwnd, UINT msg, WPARAM wp, LPARAM lp )
@@ -399,16 +399,21 @@ index e217eaf3..7f4bbadb 100644
 -    {
 -    case WM_INITDIALOG:
 -        {
--            DWORD len;
+-            DWORD len, icon_size;
+-            RECT rect;
 -            WCHAR *buffer, text[1024];
 -            const WCHAR *name = (WCHAR *)lp;
--            HICON icon = LoadImageW( 0, (LPCWSTR)IDI_WINLOGO, IMAGE_ICON, 48, 48, LR_SHARED );
+-            HICON icon;
+-
+-            GetClientRect( GetDlgItem( hwnd, IDC_WAITICON ), &rect );
+-            icon_size = min( rect.right, rect.bottom );
+-            icon = LoadImageW( 0, (LPCWSTR)IDI_WINLOGO, IMAGE_ICON, icon_size, icon_size, LR_SHARED );
 -            SendDlgItemMessageW( hwnd, IDC_WAITICON, STM_SETICON, (WPARAM)icon, 0 );
 -            SendDlgItemMessageW( hwnd, IDC_WAITTEXT, WM_GETTEXT, 1024, (LPARAM)text );
 -            len = lstrlenW(text) + lstrlenW(name) + 1;
 -            buffer = malloc( len * sizeof(WCHAR) );
 -            swprintf( buffer, len, text, name );
--            SendDlgItemMessageW( hwnd, IDC_WAITTEXT, WM_SETTEXT, 0, (LPARAM)buffer );
+-            set_wait_dialog_text( hwnd, GetDlgItem( hwnd, IDC_WAITTEXT ), buffer );
 -            free( buffer );
 -        }
 -        break;
@@ -427,7 +432,7 @@ index e217eaf3..7f4bbadb 100644
  static HANDLE start_rundll32( const WCHAR *inf_path, const WCHAR *install, WORD machine )
  {
      WCHAR app[MAX_PATH + ARRAY_SIZE(L"\\rundll32.exe" )];
-@@ -1752,7 +1721,6 @@ static void update_wineprefix( BOOL force )
+@@ -1832,7 +1796,6 @@ static void update_wineprefix( BOOL force )
  
          if ((process = start_rundll32( inf_path, L"PreInstall", IMAGE_FILE_MACHINE_TARGET_HOST )))
          {
@@ -435,7 +440,7 @@ index e217eaf3..7f4bbadb 100644
              for (;;)
              {
                  if (process)
-@@ -1773,7 +1741,6 @@ static void update_wineprefix( BOOL force )
+@@ -1853,7 +1816,6 @@ static void update_wineprefix( BOOL force )
                      process = start_rundll32( inf_path, L"Wow64Install", machines[count].Machine );
                  count++;
              }
