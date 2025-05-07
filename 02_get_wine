@@ -15,13 +15,8 @@ if [[ $1 == tkg ]] ; then
         exit 0
     fi
     git clone https://github.com/Kron4ek/wine-tkg "${SCRIPTS_PATH}/wine-tkg/"
-#     wget https://github.com/Kron4ek/wine-tkg/archive/refs/tags/$version.tar.gz || fatal
-#     tar -xf $version.tar.gz || fatal
-#     rm -f $version.tar.gz || fatal
-#     mv wine-tkg-$version wine-tkg || fatal
     pushd "${SCRIPTS_PATH}/wine-tkg/" || fatal
-    git log
-    rm -f .git
+    rm -fr .git
     git init
     git add .
     git commit -m "Commit before patches."
@@ -32,9 +27,8 @@ if [[ $1 == tkg ]] ; then
 elif [[ $1 == tkg-ntsync ]] ; then
     git clone https://github.com/Kron4ek/wine-tkg wine -b ntsync
     mv -f "${SCRIPTS_PATH}/wine" "${SCRIPTS_PATH}/wine-tkg-ntsync"
-    cp -fr "${SCRIPTS_PATH}/wine-tkg-ntsync" "${SCRIPTS_PATH}/wine-tkg-ntsync-bak"
     pushd "${SCRIPTS_PATH}/wine-tkg-ntsync/" || fatal
-    rm -f .git
+    rm -fr .git
     git init
     git add .
     git commit -m "Commit before patches."
@@ -57,7 +51,7 @@ elif [[ $1 == ge ]] ; then
         rm -fr "${SCRIPTS_PATH}/proton-ge-custom" || fatal
 
         cd "${SCRIPTS_PATH}/proton-ge" || fatal
-        rm -f .git
+        rm -fr .git
         git init
         git add .
         git commit -m "Commit before patches."
