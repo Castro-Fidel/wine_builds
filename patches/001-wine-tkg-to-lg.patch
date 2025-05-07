@@ -1,8 +1,8 @@
 diff --git a/configure b/configure
-index 3e009ce..6e73a45 100755
+index 267a9d708..dd6eee1b4 100755
 --- a/configure
 +++ b/configure
-@@ -1749,7 +1749,6 @@ enable_wineconsole
+@@ -1760,7 +1760,6 @@ enable_wineconsole
  enable_winedbg
  enable_winedevice
  enable_winefile
@@ -10,7 +10,7 @@ index 3e009ce..6e73a45 100755
  enable_winemine
  enable_winemsibuilder
  enable_winepath
-@@ -23315,7 +23314,6 @@ wine_fn_config_makefile programs/wineconsole enable_wineconsole
+@@ -23432,7 +23431,6 @@ wine_fn_config_makefile programs/wineconsole enable_wineconsole
  wine_fn_config_makefile programs/winedbg enable_winedbg
  wine_fn_config_makefile programs/winedevice enable_winedevice
  wine_fn_config_makefile programs/winefile enable_winefile
@@ -19,10 +19,10 @@ index 3e009ce..6e73a45 100755
  wine_fn_config_makefile programs/winemsibuilder enable_winemsibuilder
  wine_fn_config_makefile programs/winepath enable_winepath
 diff --git a/configure.ac b/configure.ac
-index 21fa0bc..e1f66f8 100644
+index 458e0d4cf..099c0f0fd 100644
 --- a/configure.ac
 +++ b/configure.ac
-@@ -3552,7 +3552,6 @@ WINE_CONFIG_MAKEFILE(programs/wineconsole)
+@@ -3603,7 +3603,6 @@ WINE_CONFIG_MAKEFILE(programs/wineconsole)
  WINE_CONFIG_MAKEFILE(programs/winedbg)
  WINE_CONFIG_MAKEFILE(programs/winedevice)
  WINE_CONFIG_MAKEFILE(programs/winefile)
@@ -31,7 +31,7 @@ index 21fa0bc..e1f66f8 100644
  WINE_CONFIG_MAKEFILE(programs/winemsibuilder)
  WINE_CONFIG_MAKEFILE(programs/winepath)
 diff --git a/dlls/advapi32/advapi.c b/dlls/advapi32/advapi.c
-index 2284e92..127cec5 100644
+index 2284e92b2..127cec572 100644
 --- a/dlls/advapi32/advapi.c
 +++ b/dlls/advapi32/advapi.c
 @@ -44,14 +44,15 @@ WINE_DEFAULT_DEBUG_CHANNEL(advapi);
@@ -82,26 +82,8 @@ index 2284e92..127cec5 100644
  }
  
  /******************************************************************************
-diff --git a/dlls/ntdll/loader.c b/dlls/ntdll/loader.c
-index 6e083ac..9681b18 100644
---- a/dlls/ntdll/loader.c
-+++ b/dlls/ntdll/loader.c
-@@ -4539,11 +4539,11 @@ void loader_init( CONTEXT *context, void **entry )
-     InitializeObjectAttributes( &staging_event_attr, &staging_event_string, OBJ_OPENIF, NULL, NULL );
-     if (NtCreateEvent( &staging_event, EVENT_ALL_ACCESS, &staging_event_attr, NotificationEvent, FALSE ) == STATUS_SUCCESS)
-     {
--        FIXME_(winediag)("Wine TkG (staging) %s is a testing version containing experimental patches.\n", wine_get_version());
-+        FIXME_(winediag)("Wine LG %s is a testing version containing experimental patches.\n", wine_get_version());
-         FIXME_(winediag)("Please don't report bugs about it on winehq.org and use https://github.com/Frogging-Family/wine-tkg-git/issues instead.\n");
-     }
-     else
--        WARN_(winediag)("Wine TkG (staging) %s is a testing version containing experimental patches.\n", wine_get_version());
-+        WARN_(winediag)("Wine LG (staging) %s is a testing version containing experimental patches.\n", wine_get_version());
- 
-     NtCurrentTeb()->FlsSlots = fls_alloc_data();
- 
 diff --git a/dlls/shell32/shellpath.c b/dlls/shell32/shellpath.c
-index 1a52717..b5a5489 100644
+index 1a5271765..b5a5489f0 100644
 --- a/dlls/shell32/shellpath.c
 +++ b/dlls/shell32/shellpath.c
 @@ -2645,181 +2645,6 @@ end:
@@ -298,22 +280,22 @@ index 1a52717..b5a5489 100644
      ret = SHCreateDirectoryExW(hwndOwner, szBuildPath, NULL);
      if (ret && ret != ERROR_ALREADY_EXISTS)
 diff --git a/loader/wine.inf.in b/loader/wine.inf.in
-index 72e1b5f..e445e82 100644
+index 7dcbdb733..f08b5bba7 100644
 --- a/loader/wine.inf.in
 +++ b/loader/wine.inf.in
-@@ -72,7 +72,8 @@ AddReg=\
-     SessionMgr,\
+@@ -73,7 +73,8 @@ AddReg=\
      Tapi,\
      ThemeManager,\
+     VCRuntime.ntx86,\
 -    LicenseInformation
-+    LicenseInformation, \
++    LicenseInformation,\
 +    ProtonOverrides
  
  [DefaultInstall.NT]
  RegisterDlls=RegisterDllsSection
-@@ -97,7 +98,8 @@ AddReg=\
-     Tapi,\
+@@ -99,7 +100,8 @@ AddReg=\
      ThemeManager,\
+     VCRuntime.ntx86,\
      VersionInfo,\
 -    LicenseInformation
 +    LicenseInformation, \
@@ -321,9 +303,9 @@ index 72e1b5f..e445e82 100644
  
  [DefaultInstall.ntamd64]
  RegisterDlls=RegisterDllsSection
-@@ -123,7 +125,8 @@ AddReg=\
-     Tapi,\
+@@ -126,7 +128,8 @@ AddReg=\
      ThemeManager,\
+     VCRuntime.ntamd64,\
      VersionInfo,\
 -    LicenseInformation
 +    LicenseInformation, \
@@ -331,9 +313,9 @@ index 72e1b5f..e445e82 100644
  
  [DefaultInstall.ntarm64]
  RegisterDlls=RegisterDllsSection
-@@ -148,7 +151,8 @@ AddReg=\
-     Tapi,\
-     ThemeManager,\
+@@ -153,7 +156,8 @@ AddReg=\
+     VCRuntime.ntamd64,\
+     VCRuntime.ntarm64,\
      VersionInfo,\
 -    LicenseInformation
 +    LicenseInformation, \
@@ -341,9 +323,9 @@ index 72e1b5f..e445e82 100644
  
  [Wow64Install.ntx86]
  RegisterDlls=RegisterDllsSection
-@@ -164,7 +168,8 @@ AddReg=\
-     Misc,\
-     Tapi,\
+@@ -171,7 +175,8 @@ AddReg=\
+     VCRuntime.ntamd64,\
+     VCRuntime.ntx86,\
      VersionInfo,\
 -    LicenseInformation
 +    LicenseInformation, \
@@ -351,7 +333,7 @@ index 72e1b5f..e445e82 100644
  
  [Wow64Install.ntarm]
  RegisterDlls=RegisterDllsSection
-@@ -179,7 +184,8 @@ AddReg=\
+@@ -186,7 +191,8 @@ AddReg=\
      Misc,\
      Tapi,\
      VersionInfo,\
@@ -361,7 +343,7 @@ index 72e1b5f..e445e82 100644
  
  [DefaultInstall.Services]
  AddService=BITS,0,BITSService
-@@ -453,6 +459,7 @@ HKLM,%CurrentVersionNT%\AeDebug,"Debugger",2,"winedbg --auto %ld %ld"
+@@ -460,6 +466,7 @@ HKLM,%CurrentVersionNT%\AeDebug,"Debugger",2,"winedbg --auto %ld %ld"
  HKLM,%CurrentVersionNT%\AeDebug,"Auto",2,"1"
  HKCU,Software\Wine\Debug,"RelayExclude",2,"ntdll.RtlEnterCriticalSection;ntdll.RtlTryEnterCriticalSection;ntdll.RtlLeaveCriticalSection;kernel32.48;kernel32.49;kernel32.94;kernel32.95;kernel32.96;kernel32.97;kernel32.98;kernel32.TlsGetValue;kernel32.TlsSetValue;kernel32.FlsGetValue;kernel32.FlsSetValue;kernel32.SetLastError"
  HKCU,Software\Wine\Debug,"RelayFromExclude",2,"winex11.drv;winemac.drv;user32;gdi32;advapi32;kernel32"
@@ -369,15 +351,15 @@ index 72e1b5f..e445e82 100644
  
  [DirectX]
  HKLM,Software\Microsoft\DirectX,"Version",,"4.09.00.0904"
-@@ -2444,7 +2451,6 @@ HKLM,%CurrentVersion%\Telephony\Country List\998,"SameAreaRule",,"G"
- 11,,conhost.exe,-
- 11,,services.exe,-
+@@ -2513,7 +2520,6 @@ HKLM,SOFTWARE\Microsoft\VisualStudio\14.0\VC\Runtimes\x86,"Version",2,"14.42.344
  11,,spoolsv.exe,-
+ 11,,termsv.exe,-
+ 11,,wineboot.exe,-
 -11,,winemenubuilder.exe,-
+ 11,,wuauserv.exe,-
  ; registration order matters for these
  11,,msxml.dll
- 11,,msxml2.dll
-@@ -2769,7 +2775,6 @@ StartType=3
+@@ -2839,7 +2845,6 @@ StartType=3
  ErrorControl=1
  
  [Services]
@@ -386,10 +368,10 @@ index 72e1b5f..e445e82 100644
  HKLM,"System\CurrentControlSet\Services\Eventlog\System","Sources",0x10000,""
  HKLM,"System\CurrentControlSet\Services\Tcpip\Parameters","DataBasePath",,"%12%\etc"
 diff --git a/programs/wineboot/wineboot.c b/programs/wineboot/wineboot.c
-index 9ebbd51..04972d2 100644
+index 431f561d3..5b13bed60 100644
 --- a/programs/wineboot/wineboot.c
 +++ b/programs/wineboot/wineboot.c
-@@ -1608,42 +1608,6 @@ static void set_wait_dialog_text( HWND hwnd, HWND text, const WCHAR *string )
+@@ -1744,42 +1744,6 @@ static void set_wait_dialog_text( HWND hwnd, HWND text, const WCHAR *string )
      SendMessageW( text, WM_SETTEXT, 0, (LPARAM)string );
  }
  
@@ -432,7 +414,7 @@ index 9ebbd51..04972d2 100644
  static HANDLE start_rundll32( const WCHAR *inf_path, const WCHAR *install, WORD machine )
  {
      WCHAR app[MAX_PATH + ARRAY_SIZE(L"\\rundll32.exe" )];
-@@ -1832,7 +1796,6 @@ static void update_wineprefix( BOOL force )
+@@ -1964,7 +1928,6 @@ static void update_wineprefix( BOOL force )
  
          if ((process = start_rundll32( inf_path, L"PreInstall", IMAGE_FILE_MACHINE_TARGET_HOST )))
          {
@@ -440,7 +422,7 @@ index 9ebbd51..04972d2 100644
              for (;;)
              {
                  if (process)
-@@ -1853,7 +1816,6 @@ static void update_wineprefix( BOOL force )
+@@ -1985,7 +1948,6 @@ static void update_wineprefix( BOOL force )
                      process = start_rundll32( inf_path, L"Wow64Install", machines[count].Machine );
                  count++;
              }

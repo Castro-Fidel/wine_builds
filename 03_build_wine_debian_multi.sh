@@ -20,25 +20,31 @@ fi
 
 export scriptdir="$(dirname "$(readlink -f "${BASH_SOURCE[0]}")")"
 
+export WINE_BUILD_OPTIONS="--with-x --with-mingw --with-gstreamer --without-ldap --without-oss --disable-winemenubuilder --disable-win16 --disable-tests"
+
 if [[ -d "$scriptdir"/winecx/ ]] ; then
 	CUSTOM_SRC_PATH="$scriptdir"/winecx/
 	if [[ -z "$WINE_FULL_NAME" ]] ; then
 		WINE_FULL_NAME="WINE_CX_$(awk '{print $3}' "$CUSTOM_SRC_PATH/VERSION" | sed 's/\./-/')"
+		WINE_BUILD_OPTIONS+=" --without-wayland"
 	fi
 elif [[ -d "$scriptdir"/wine-tkg/ ]] ; then
 	CUSTOM_SRC_PATH="$scriptdir"/wine-tkg/
 	if [[ -z "$WINE_FULL_NAME" ]] ; then
 		WINE_FULL_NAME="WINE_LG_$(awk '{print $3}' "$CUSTOM_SRC_PATH/VERSION" | sed 's/\./-/')"
+		WINE_BUILD_OPTIONS+=" --without-wayland"
 	fi
 elif [[ -d "$scriptdir"/wine-tkg-ntsync/ ]] ; then
 	CUSTOM_SRC_PATH="$scriptdir"/wine-tkg-ntsync/
 	if [[ -z "$WINE_FULL_NAME" ]] ; then
 		WINE_FULL_NAME="WINE_LG_NTSYNC_$(awk '{print $3}' "$CUSTOM_SRC_PATH/VERSION" | sed 's/\./-/')"
+		WINE_BUILD_OPTIONS+=" --without-wayland"
 	fi
 elif [[ -d "$scriptdir"/proton-ge/ ]] ; then
 	CUSTOM_SRC_PATH="$scriptdir"/proton-ge/
 	if [[ -z "$WINE_FULL_NAME" ]] ; then
 		WINE_FULL_NAME="PROTON_LG_$(head -n 1 "$CUSTOM_SRC_PATH/GE_VER" | sed 's/\./-/')"
+		WINE_BUILD_OPTIONS+=" --without-wayland"
 	fi
 else
 	echo "Source not found."
@@ -48,7 +54,6 @@ export WINE_FULL_NAME CUSTOM_SRC_PATH
 export BUILD_DIR="$scriptdir"/build
 export GSTR_RUNTIME_PATH="$scriptdir"/extra/
 export BOOTSTRAP_PATH=/opt/chroots_bullseye/bullseye_x86_64_chroot
-export WINE_BUILD_OPTIONS="--with-x --with-mingw --with-gstreamer --without-ldap --without-oss --disable-winemenubuilder --disable-win16 --disable-tests"
 
 export USE_CCACHE="true"
 
@@ -78,7 +83,7 @@ build_with_bwrap () {
 }
 BWRAP="build_with_bwrap"
 
-rm -rf "${BUILD_DIR}"
+# rm -rf "${BUILD_DIR}"
 mkdir -p "${BUILD_DIR}"
 cd "${BUILD_DIR}" || exit 1
 
@@ -132,7 +137,7 @@ fi
 if [[ "$WINE_FULL_NAME" =~ PROTON_LG_* ]] ; then
 	sed -i "s/\"wine-/\"$WINE_FULL_NAME wine-/g" configure
 	sed -i "s/\"wine-/\"$WINE_FULL_NAME wine-/g" configure.ac
-elif [[ "$WINE_FULL_NAME" =~ WINE_LG_NTSYNC* ]] ; then
+elif [[ "$WINE_FULL_NAME" =~ WINE_LG_NT* ]] ; then
 	sed -i "s/TkG Staging Esync/LG_NTSYNC/g" configure
 	sed -i "s/TkG Staging Esync/LG_NTSYNC/g" configure.ac
 else
@@ -182,7 +187,7 @@ LDFLAGS="-L${GSTR_RUNTIME_PATH}/lib64 -Wl,-O1,--sort-common,--as-needed,-rpath-l
 ../configure -C \
 --enable-win64 \
 --prefix="$RESULT_DIR" \
---libdir="$RESULT_DIR"/lib64 \
+--libdir="$RESULT_DIR"/lib \
 --bindir="$RESULT_DIR"/bin \
 --datadir="$RESULT_DIR"/share \
 --mandir="$RESULT_DIR"/share/man \
@@ -219,6 +224,8 @@ LDFLAGS="-L${GSTR_RUNTIME_PATH}/lib32 -Wl,-O1,--sort-common,--as-needed,-rpath-l
 --mandir="$RESULT_DIR"/share/man \
 ${WINE_BUILD_OPTIONS} || exit 1
 sleep 5
+read -s -n 1
+
 ${BWRAP} env \
 LD_LIBRARY_PATH="${GSTR_RUNTIME_PATH}/lib32" \
 CC="ccache gcc-10" CXX="ccache g++-10" \
@@ -248,6 +255,7 @@ if [[ "$NO_EXTRA" != "1" ]] ; then
 
 	echo "Copying 64 bit runtime libraries to build"
 	# copy sdl2, faudio, vkd3d, and ffmpeg libraries
+	[[ ! -d "$RESULT_DIR"/lib64/ ]] && mkdir -p "$RESULT_DIR"/lib64/
 	cp -R "${GSTR_RUNTIME_PATH}"/lib64/* "$RESULT_DIR"/lib64/
 
 	echo "Copying 32 bit runtime libraries to build"
