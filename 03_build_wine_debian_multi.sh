@@ -20,36 +20,33 @@ fi
 
 export scriptdir="$(dirname "$(readlink -f "${BASH_SOURCE[0]}")")"
 
-export WINE_BUILD_OPTIONS="--with-x --with-mingw --with-gstreamer --without-ldap --without-oss --disable-winemenubuilder --disable-win16 --disable-tests"
+export WINE_BUILD_OPTIONS="--with-x --with-mingw --with-gstreamer --without-ldap --without-oss --disable-winemenubuilder --disable-win16 --disable-tests --with-cups --without-capi"
 
 if [[ -d "$scriptdir"/winecx/ ]] ; then
 	CUSTOM_SRC_PATH="$scriptdir"/winecx/
 	if [[ -z "$WINE_FULL_NAME" ]] ; then
 		WINE_FULL_NAME="WINE_CX_$(awk '{print $3}' "$CUSTOM_SRC_PATH/VERSION" | sed 's/\./-/')"
-		WINE_BUILD_OPTIONS+=" --without-wayland"
 	fi
 elif [[ -d "$scriptdir"/wine-tkg/ ]] ; then
 	CUSTOM_SRC_PATH="$scriptdir"/wine-tkg/
 	if [[ -z "$WINE_FULL_NAME" ]] ; then
 		WINE_FULL_NAME="WINE_LG_$(awk '{print $3}' "$CUSTOM_SRC_PATH/VERSION" | sed 's/\./-/')"
-		WINE_BUILD_OPTIONS+=" --without-wayland"
 	fi
 elif [[ -d "$scriptdir"/wine-tkg-ntsync/ ]] ; then
 	CUSTOM_SRC_PATH="$scriptdir"/wine-tkg-ntsync/
 	if [[ -z "$WINE_FULL_NAME" ]] ; then
 		WINE_FULL_NAME="WINE_LG_NTSYNC_$(awk '{print $3}' "$CUSTOM_SRC_PATH/VERSION" | sed 's/\./-/')"
-		WINE_BUILD_OPTIONS+=" --without-wayland"
 	fi
 elif [[ -d "$scriptdir"/proton-ge/ ]] ; then
 	CUSTOM_SRC_PATH="$scriptdir"/proton-ge/
 	if [[ -z "$WINE_FULL_NAME" ]] ; then
 		WINE_FULL_NAME="PROTON_LG_$(head -n 1 "$CUSTOM_SRC_PATH/GE_VER" | sed 's/\./-/')"
-		WINE_BUILD_OPTIONS+=" --without-wayland"
 	fi
 else
 	echo "Source not found."
 	exit 1
 fi
+
 export WINE_FULL_NAME CUSTOM_SRC_PATH
 export BUILD_DIR="$scriptdir"/build
 export GSTR_RUNTIME_PATH="$scriptdir"/extra/
@@ -186,6 +183,7 @@ PKG_CONFIG_PATH=/usr/share/pkgconfig \
 LDFLAGS="-L${GSTR_RUNTIME_PATH}/lib64 -Wl,-O1,--sort-common,--as-needed,-rpath-link,${GSTR_RUNTIME_PATH}/lib64" \
 ../configure -C \
 --enable-win64 \
+--enable-archs=i386,x86_64 \
 --prefix="$RESULT_DIR" \
 --libdir="$RESULT_DIR"/lib \
 --bindir="$RESULT_DIR"/bin \
@@ -224,7 +222,6 @@ LDFLAGS="-L${GSTR_RUNTIME_PATH}/lib32 -Wl,-O1,--sort-common,--as-needed,-rpath-l
 --mandir="$RESULT_DIR"/share/man \
 ${WINE_BUILD_OPTIONS} || exit 1
 sleep 5
-read -s -n 1
 
 ${BWRAP} env \
 LD_LIBRARY_PATH="${GSTR_RUNTIME_PATH}/lib32" \
@@ -236,7 +233,6 @@ ${BWRAP} env \
 LD_LIBRARY_PATH="${GSTR_RUNTIME_PATH}/lib32" \
 CC="ccache gcc-10" CXX="ccache g++-10" \
 make -j${NCPU} -C build32 install-lib || exit 1
-
 
 ${BWRAP} env \
 LD_LIBRARY_PATH="${GSTR_RUNTIME_PATH}/lib64" \
