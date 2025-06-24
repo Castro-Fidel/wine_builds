@@ -24,63 +24,68 @@ fi
 PROTON_LG=PROTON_LG_$GE_VERSION
 
 if wget https://github.com/GloriousEggroll/proton-ge-custom/releases/download/GE-Proton$GE_VERSION/GE-Proton$GE_VERSION.tar.gz
-then
-	tar -xf GE-Proton$GE_VERSION.tar.gz
-	mv GE-Proton$GE_VERSION.tar.gz GE-Proton$GE_VERSION-orig.tar.gz
-else
-	exit 1
+then tar -xf GE-Proton$GE_VERSION.tar.gz
+else exit 1
 fi
+
+tar -xf GE-Proton$GE_VERSION.tar.gz
 
 mv GE-Proton$GE_VERSION/files $PROTON_LG/
 mv GE-Proton$GE_VERSION/PATENTS.AV1 $PROTON_LG/
 mv GE-Proton$GE_VERSION/LICENSE* $PROTON_LG/
+
 rm -r GE-Proton$GE_VERSION
 
-echo "$PROTON_LG" > $PROTON_LG/version
-rm -r $PROTON_LG/share/default_pfx
-rm -r $PROTON_LG/*/{cmake,fst,glslang,graphene-1.0,pkgconfig}
-rm -f $PROTON_LG/*/*steam*
-rm -f $PROTON_LG/*/wine/*/*steam*
-rm -f $PROTON_LG/*/wine/*-windows/winemenubuilder.exe
+rm $PROTON_LG/share/libtashkeel_model.ort
+rm -r $PROTON_LG/share/{default_pfx,espeak-ng-data}
+rm -r $PROTON_LG/lib/*w64-mingw32
+rm -r $PROTON_LG/lib/{pkgconfig,cmake}
+rm -r $PROTON_LG/lib/*/{cmake,fst,glslang,graphene-1.0,pkgconfig}
+rm -f $PROTON_LG/lib/*/*steam*
+rm -f  $PROTON_LG/lib/wine/*/*steam*
+rm -f $PROTON_LG/lib/wine/*/*-windows/winemenubuilder.exe
 
+chmod -R 755 "$PROTON_LG"/
+find "$PROTON_LG"/ -type f -exec strip --strip-unneeded {} +
+
+echo -e "\nCreating and compressing VKD3D archive..."
 VKD3D_VER="$(cat $PROTON_LG/lib/wine/vkd3d-proton/version | awk -F'-' '{print $3 "-" $4}')"
 mkdir -p vkd3d-proton-$VKD3D_VER/{x64,x86}
 # x86
-mv $PROTON_LG/lib/vkd3d/* vkd3d-proton-$VKD3D_VER/x86/
-rm -r $PROTON_LG/lib/vkd3d/
-mv $PROTON_LG/lib/wine/vkd3d-proton/* vkd3d-proton-$VKD3D_VER/x86/
-rm -r $PROTON_LG/lib/wine/vkd3d-proton/
+cp $PROTON_LG/lib/wine/vkd3d-proton/version vkd3d-proton-$VKD3D_VER/x86/
+mv $PROTON_LG/lib/vkd3d/i386-windows/* vkd3d-proton-$VKD3D_VER/x86/
+mv $PROTON_LG/lib/wine/vkd3d-proton/i386-windows/* vkd3d-proton-$VKD3D_VER/x86/
 # x64
-mv $PROTON_LG/lib64/vkd3d/* vkd3d-proton-$VKD3D_VER/x64/
-rm -r $PROTON_LG/lib64/vkd3d/
-mv $PROTON_LG/lib64/wine/vkd3d-proton/* vkd3d-proton-$VKD3D_VER/x64/
-rm -r $PROTON_LG/lib64/wine/vkd3d-proton/
-echo -e "\nCreating and compressing VKD3D archive..."
-tar -c -I 'xz -9 -T0' -f "${scriptdir}/vkd3d-proton-$VKD3D_VER.tar.xz" "vkd3d-proton-$VKD3D_VER"
-rm -fr vkd3d-proton-$VKD3D_VER
+cp $PROTON_LG/lib/wine/vkd3d-proton/version vkd3d-proton-$VKD3D_VER/x64/
+mv $PROTON_LG/lib/vkd3d/x86_64-windows/* vkd3d-proton-$VKD3D_VER/x64/
+mv $PROTON_LG/lib/wine/vkd3d-proton/x86_64-windows/* vkd3d-proton-$VKD3D_VER/x64/
 
+rm -r $PROTON_LG/lib/vkd3d/
+rm -r $PROTON_LG/lib/wine/vkd3d-proton/
+tar -c -I 'xz -9 -T0' -f "${scriptdir}/vkd3d-proton-$VKD3D_VER.tar.xz" "vkd3d-proton-$VKD3D_VER"
+rm -r vkd3d-proton-$VKD3D_VER
+
+echo -e "\nCreating and compressing DXVK archive..."
 DXVK_VER="$(cat $PROTON_LG/lib/wine/dxvk/version | awk -F'\\(v' '{print $2}' | awk -F'-' '{print $1 "-" $2}')"
 mkdir -p dxvk-$DXVK_VER/{x64,x32}
 # x32
-mv $PROTON_LG/lib/wine/nvapi/version dxvk-$DXVK_VER/x32/nvapi-version
-mv $PROTON_LG/lib/wine/nvapi/* dxvk-$DXVK_VER/x32/
-rm -r $PROTON_LG/lib/wine/nvapi/
-mv $PROTON_LG/lib/wine/dxvk/* dxvk-$DXVK_VER/x32/
-rm -r $PROTON_LG/lib/wine/dxvk/
+cp $PROTON_LG/lib/wine/nvapi/version dxvk-$DXVK_VER/x32/nvapi-version
+mv $PROTON_LG/lib/wine/nvapi/i386-windows/* dxvk-$DXVK_VER/x32/
+cp $PROTON_LG/lib/wine/dxvk/version dxvk-$DXVK_VER/x32/version
+mv $PROTON_LG/lib/wine/dxvk/i386-windows/* dxvk-$DXVK_VER/x32/
 # x64
-mv $PROTON_LG/lib64/wine/nvapi/version dxvk-$DXVK_VER/x64/nvapi-version
-mv $PROTON_LG/lib64/wine/nvapi/* dxvk-$DXVK_VER/x64/
-rm -r $PROTON_LG/lib64/wine/nvapi/
-mv $PROTON_LG/lib64/wine/dxvk/* dxvk-$DXVK_VER/x64/
-rm -r $PROTON_LG/lib64/wine/dxvk/
-echo -e "\nCreating and compressing DXVK archive..."
-tar -c -I 'xz -9 -T0' -f "${scriptdir}/dxvk-$DXVK_VER.tar.xz" "dxvk-$DXVK_VER"
-rm -fr dxvk-$DXVK_VER
+cp $PROTON_LG/lib/wine/nvapi/version dxvk-$DXVK_VER/x64/nvapi-version
+mv $PROTON_LG/lib/wine/nvapi/x86_64-windows/* dxvk-$DXVK_VER/x64/
+cp $PROTON_LG/lib/wine/dxvk/version dxvk-$DXVK_VER/x64/
+mv $PROTON_LG/lib/wine/dxvk/x86_64-windows/* dxvk-$DXVK_VER/x64/
 
-rm -fr $PROTON_LG/*/wine/d8vk
+rm -r $PROTON_LG/lib/wine/nvapi/
+rm -r $PROTON_LG/lib/wine/dxvk
+tar -c -I 'xz -9 -T0' -f "${scriptdir}/dxvk-$DXVK_VER.tar.xz" "dxvk-$DXVK_VER"
+rm -r dxvk-$DXVK_VER
 
 echo -e "\nCreating and compressing archives..."
 tar -c -I 'xz -9 -T0' -f "${scriptdir}/$PROTON_LG.tar.xz" "$PROTON_LG"
-rm -fr $PROTON_LG
+rm -r $PROTON_LG
 
 echo "Done."
