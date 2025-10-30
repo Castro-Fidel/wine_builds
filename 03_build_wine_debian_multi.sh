@@ -20,25 +20,36 @@ fi
 
 export scriptdir="$(dirname "$(readlink -f "${BASH_SOURCE[0]}")")"
 
-export WINE_BUILD_OPTIONS="--with-x --with-mingw --with-gstreamer --without-ldap --without-oss --disable-winemenubuilder --disable-win16 --disable-tests --with-cups --without-capi"
+export WINE_BUILD_OPTIONS="--with-x --with-mingw --without-oss --disable-winemenubuilder --disable-tests"
 
 if [[ -d "$scriptdir"/winecx/ ]] ; then
 	CUSTOM_SRC_PATH="$scriptdir"/winecx/
+	WINE_BUILD_OPTIONS+=" --with-gstreamer"
 	if [[ -z "$WINE_FULL_NAME" ]] ; then
 		WINE_FULL_NAME="WINE_CX_$(awk '{print $3}' "$CUSTOM_SRC_PATH/VERSION" | sed 's/\./-/')"
 	fi
 elif [[ -d "$scriptdir"/wine-tkg/ ]] ; then
 	CUSTOM_SRC_PATH="$scriptdir"/wine-tkg/
+	WINE_BUILD_OPTIONS+=" --with-gstreamer"
 	if [[ -z "$WINE_FULL_NAME" ]] ; then
 		WINE_FULL_NAME="WINE_LG_$(awk '{print $3}' "$CUSTOM_SRC_PATH/VERSION" | sed 's/\./-/')"
 	fi
+elif [[ -d "$scriptdir"/wine-wh/ ]] ; then
+	CUSTOM_SRC_PATH="$scriptdir"/wine-wh/
+	WINE_BUILD_OPTIONS+=" --with-gstreamer" #" --without-gstreamer --with-ffmpeg"
+	NO_EXTRA="1"
+	if [[ -z "$WINE_FULL_NAME" ]] ; then
+		WINE_FULL_NAME="wine_wh_$(awk '{print $3}' "$CUSTOM_SRC_PATH/VERSION" | sed 's/\./-/')_wow64"
+	fi
 elif [[ -d "$scriptdir"/wine-tkg-ntsync/ ]] ; then
 	CUSTOM_SRC_PATH="$scriptdir"/wine-tkg-ntsync/
+	WINE_BUILD_OPTIONS+=" --with-gstreamer"
 	if [[ -z "$WINE_FULL_NAME" ]] ; then
 		WINE_FULL_NAME="WINE_LG_NTSYNC_$(awk '{print $3}' "$CUSTOM_SRC_PATH/VERSION" | sed 's/\./-/')"
 	fi
 elif [[ -d "$scriptdir"/proton-ge/ ]] ; then
 	CUSTOM_SRC_PATH="$scriptdir"/proton-ge/
+	WINE_BUILD_OPTIONS+=" --with-gstreamer"
 	if [[ -z "$WINE_FULL_NAME" ]] ; then
 		WINE_FULL_NAME="PROTON_LG_$(head -n 1 "$CUSTOM_SRC_PATH/GE_VER" | sed 's/\./-/')"
 	fi
@@ -76,7 +87,7 @@ build_with_bwrap () {
 		  --bind-try /tmp /tmp \
 		  --bind-try "${XDG_CACHE_HOME}"/ccache "${XDG_CACHE_HOME}"/ccache \
 		  --bind-try "${HOME}"/.ccache "${HOME}"/.ccache \
-		  --setenv PATH "/bin:/sbin:/usr/bin:/usr/sbin" "$@"
+		  --setenv PATH "/usr/local/bin:/bin:/sbin:/usr/bin:/usr/sbin" "$@"
 }
 BWRAP="build_with_bwrap"
 
@@ -125,10 +136,10 @@ cd "${BUILD_DIR}" || exit 1
 if [[ -f "autogen.sh" ]] ; then
 	${BWRAP} ./autogen.sh
 else
-	${BWRAP} dlls/winevulkan/make_vulkan
-	${BWRAP} tools/make_requests
-	${BWRAP} tools/make_specfiles
-	${BWRAP} autoreconf -f
+	dlls/winevulkan/make_vulkan
+	tools/make_requests
+	tools/make_specfiles
+	autoreconf -vif
 fi
 
 if [[ "$WINE_FULL_NAME" =~ PROTON_LG_* ]] ; then

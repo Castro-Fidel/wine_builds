@@ -211,19 +211,27 @@ create_build_scripts_update () {
 
     sdl2_version="2.26.4"
     faudio_version="23.03"
-    vulkan_headers_version="1.4.304"
-    vulkan_loader_version="1.4.304"
+    vulkan_headers_version="1.4.328"
+    vulkan_loader_version="1.4.328"
     spirv_headers_version="sdk-1.3.239.0"
     libpcap_version="1.10.4"
     libxkbcommon_version="1.6.0"
     libglvnd_version="1.7.0"
+    cmake_version="3.30.3"
 
 	cat <<EOF > "${MAINDIR_CHROOTS}"/prepare_chroot.sh
 #!/bin/bash
 
-apt-get update
-apt-get -y upgrade
-apt-get -y dist-upgrade
+fatal () {
+    echo "FATAL ERROR!"
+    exit 1
+}
+
+# apt-get update || fatal
+# apt-get -y upgrade || fatal
+# apt-get -y dist-upgrade || fatal
+# apt-get install -y libssl-dev autogen libtool shtool automake autoconf autotools-dev gettext
+# exit 0
 
 export PATH="/usr/local/bin:\${PATH}"
 if [[ -d /opt/build_libs ]] ; then
@@ -242,8 +250,8 @@ wget -O libxkbcommon.tar.xz https://xkbcommon.org/download/libxkbcommon-${libxkb
 
 wget -O libglvnd.tar.gz https://gitlab.freedesktop.org/glvnd/libglvnd/-/archive/v${libglvnd_version}/libglvnd-v${libglvnd_version}.tar.gz
 
-wget -O /usr/include/linux/ntsync.h https://raw.githubusercontent.com/zen-kernel/zen-kernel/refs/heads/6.13/main/include/uapi/linux/ntsync.h
-wget -O /usr/include/linux/userfaultfd.h https://raw.githubusercontent.com/zen-kernel/zen-kernel/refs/heads/6.13/main/include/uapi/linux/userfaultfd.h
+wget -O /usr/include/linux/ntsync.h https://raw.githubusercontent.com/zen-kernel/zen-kernel/refs/heads/6.15/main/include/uapi/linux/ntsync.h
+wget -O /usr/include/linux/userfaultfd.h https://raw.githubusercontent.com/zen-kernel/zen-kernel/refs/heads/6.15/main/include/uapi/linux/userfaultfd.h
 
 if [ -d /usr/lib/i386-linux-gnu ]; then wget -O wine.deb https://dl.winehq.org/wine-builds/ubuntu/dists/bionic/main/binary-i386/wine-stable_4.0.3~bionic_i386.deb; fi
 if [ -d /usr/lib/x86_64-linux-gnu ]; then wget -O wine.deb https://dl.winehq.org/wine-builds/ubuntu/dists/bionic/main/binary-amd64/wine-stable_4.0.3~bionic_amd64.deb; fi
@@ -257,44 +265,54 @@ tar xf libpcap.tar.gz
 tar xf libxkbcommon.tar.xz
 tar xf libglvnd.tar.gz
 
+export CC=gcc-10
+export CXX=g++-10
 export CFLAGS="-O2"
 export CXXFLAGS="-O2"
+
+wget -O cmake.tar.gz https://github.com/Kitware/CMake/releases/download/v${cmake_version}/cmake-${cmake_version}.tar.gz
+tar xf cmake.tar.gz
+cd cmake-${cmake_version}
+./bootstrap --parallel=$(nproc)
+make -j$(nproc) install
+
+rm -r build
 mkdir build && cd build
 
-cmake ../SDL2-${sdl2_version}
-make -j$(nproc) install
+cmake ../SDL2-${sdl2_version} || fatal
+make -j$(nproc) install || fatal
 cd ../ && rm -r build && mkdir build && cd build
 
-cmake ../FAudio-${faudio_version}
-make -j$(nproc) install
+cmake ../FAudio-${faudio_version} || fatal
+make -j$(nproc) install || fatal
 cd ../ && rm -r build && mkdir build && cd build
 
-cmake ../Vulkan-Headers-${vulkan_headers_version}
-make -j$(nproc) install
+cmake ../Vulkan-Headers-${vulkan_headers_version} || fatal
+make -j$(nproc) install || fatal
 cd ../ && rm -r build && mkdir build && cd build
 
-cmake ../Vulkan-Loader-${vulkan_loader_version}
-make -j$(nproc) install
+cmake ../Vulkan-Loader-${vulkan_loader_version} || fatal
+make -j$(nproc) install || fatal
 cd ../ && rm -r build && mkdir build && cd build
 
-cmake ../SPIRV-Headers-${spirv_headers_version}
-make -j$(nproc) install
+cmake ../SPIRV-Headers-${spirv_headers_version} || fatal
+make -j$(nproc) install || fatal
 cd ../ && dpkg -x wine.deb .
 cp opt/wine-stable/bin/widl /usr/bin
 rm -r build && mkdir build && cd build
 
 ../libpcap-${libpcap_version}/configure
-make -j$(nproc) install
+make -j$(nproc) install || fatal
 
 cd ../libxkbcommon-${libxkbcommon_version}
-meson setup build -Denable-docs=false
-meson compile -C build
-meson install -C build
+meson setup build -Denable-docs=false || fatal
+meson compile -C build || fatal
+meson install -C build || fatal
 
 cd ../libglvnd-v${libglvnd_version}
-meson setup build
-meson compile -C build
-meson install -C build
+meson setup build || fatal
+meson compile -C build || fatal
+meson install -C build || fatal
 
 cd /opt && rm -r /opt/build_libs
 
@@ -320,6 +338,7 @@ case "$1" in
         umount "${CHROOT_PATH}"/dev/pts
         umount "${CHROOT_PATH}"/dev/shm
         umount "${CHROOT_PATH}"/dev
+        exit 0
         ;;
     *)
         rsync -avz --progress keyring.debian.org::keyrings/keyrings/ /usr/share/keyrings/

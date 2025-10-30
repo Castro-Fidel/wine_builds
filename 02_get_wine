@@ -8,9 +8,12 @@ fatal () {
     exit 1
 }
 
-if [[ $1 == tkg ]] ; then
-    version="$2"
-    if [[ -z $version ]] ; then
+w_in_name="$1"
+w_version="$2"
+w_out_name="$3"
+
+if [[ $w_in_name == tkg ]] ; then
+    if [[ -z $w_version ]] ; then
         echo "Use: 02_get_wine tkg VESRION"
         exit 0
     fi
@@ -21,10 +24,16 @@ if [[ $1 == tkg ]] ; then
     git add .
     git commit -m "Commit before patches."
     echo -e "-----------------------------------------\nAdding 001-wine-tkg-to-lg patches:"
-    patch -Np1 < ../patches/001-wine-tkg-to-lg.patch || fatal
-
+    if [[ $w_out_name == "wh" ]]
+    then patch -Np1 < ../patches/001-wine-tkg-to-wh.patch || fatal
+    else
+        patch -Np1 < ../patches/001-wine-tkg-to-lg.patch || fatal
+        patch -Np1 < ../patches/proton-use_winegstreamer_and_set_orientation.patch || fatal
+#         patch -Np1 < ../patches/HYP/0003-winegstreamer-Remove-au-alignment-for-h264.patch || fatal
+#         patch -Np1 < ../patches/HYP/7540-kernel32-add-test-for-maximum-path-leng.patch || fatal
+    fi
     popd || fatal
-elif [[ $1 == tkg-ntsync ]] ; then
+elif [[ $w_in_name == tkg-ntsync ]] ; then
     git clone https://github.com/Kron4ek/wine-tkg wine -b ntsync
     mv -f "${SCRIPTS_PATH}/wine" "${SCRIPTS_PATH}/wine-tkg-ntsync"
     pushd "${SCRIPTS_PATH}/wine-tkg-ntsync/" || fatal
@@ -36,14 +45,13 @@ elif [[ $1 == tkg-ntsync ]] ; then
     patch -Np1 < ../patches/001-wine-tkg-to-lg.patch || fatal
 
     popd || fatal
-elif [[ $1 == ge ]] ; then
+elif [[ $w_in_name == ge ]] ; then
     if [[ ! -d "${SCRIPTS_PATH}/proton-ge" ]] ; then
-        version="$2"
-        if [[ -z $version ]] ; then
+        if [[ -z $w_version ]] ; then
             echo "Use: 02_get_wine ge VESRION (X-X)"
             exit 0
         fi
-        git clone --branch "GE-Proton$version" --recurse-submodules http://github.com/gloriouseggroll/proton-ge-custom || fatal
+        git clone --branch "GE-Proton$w_version" --recurse-submodules http://github.com/gloriouseggroll/proton-ge-custom || fatal
         mv "${SCRIPTS_PATH}/proton-ge-custom/wine" "${SCRIPTS_PATH}/proton-ge" || fatal
         pushd "${SCRIPTS_PATH}/proton-ge-custom" || fatal
         git log -1 | grep GE-Proton | awk -F'GE-Proton' '{print $2}' | awk '{print $1}' > ${SCRIPTS_PATH}/proton-ge/GE_VER || fatal
@@ -60,7 +68,7 @@ elif [[ $1 == ge ]] ; then
     cd "${SCRIPTS_PATH}/proton-ge" || fatal
 
     echo -e "-----------------------------------------\nAdding De-steamify-proton-s-WINE_for_PortProton patches:\n"
-    patch -Np1 < ../patches/proton-ge-to-lg-9-27.patch
+    patch -Np1 < ../patches/proton-ge-to-lg-10-4.patch
 else
     echo "Use: 02_get_wine < tkg | tkg-ntsync | ge >"
     exit 0
