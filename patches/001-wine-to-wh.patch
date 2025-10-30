@@ -1,0 +1,271 @@
+diff --git a/configure b/configure
+index 91d11d1..b941f79 100755
+--- a/configure
++++ b/configure
+@@ -1756,7 +1756,6 @@ enable_wineconsole
+ enable_winedbg
+ enable_winedevice
+ enable_winefile
+-enable_winemenubuilder
+ enable_winemine
+ enable_winemsibuilder
+ enable_winepath
+@@ -23357,7 +23356,6 @@ wine_fn_config_makefile programs/wineconsole enable_wineconsole
+ wine_fn_config_makefile programs/winedbg enable_winedbg
+ wine_fn_config_makefile programs/winedevice enable_winedevice
+ wine_fn_config_makefile programs/winefile enable_winefile
+-wine_fn_config_makefile programs/winemenubuilder enable_winemenubuilder
+ wine_fn_config_makefile programs/winemine enable_winemine
+ wine_fn_config_makefile programs/winemsibuilder enable_winemsibuilder
+ wine_fn_config_makefile programs/winepath enable_winepath
+diff --git a/configure.ac b/configure.ac
+index 8e05ccf..2a98348 100644
+--- a/configure.ac
++++ b/configure.ac
+@@ -3617,7 +3617,6 @@ WINE_CONFIG_MAKEFILE(programs/wineconsole)
+ WINE_CONFIG_MAKEFILE(programs/winedbg)
+ WINE_CONFIG_MAKEFILE(programs/winedevice)
+ WINE_CONFIG_MAKEFILE(programs/winefile)
+-WINE_CONFIG_MAKEFILE(programs/winemenubuilder)
+ WINE_CONFIG_MAKEFILE(programs/winemine)
+ WINE_CONFIG_MAKEFILE(programs/winemsibuilder)
+ WINE_CONFIG_MAKEFILE(programs/winepath)
+diff --git a/dlls/ntdll/unix/loader.c b/dlls/ntdll/unix/loader.c
+index 63b7d323b7d..4cc0d1a394e 100644
+--- a/dlls/ntdll/unix/loader.c
++++ b/dlls/ntdll/unix/loader.c
+@@ -420,7 +420,8 @@ static void set_home_dir(void)
+     if ((p = strrchr( name, '/' ))) name = p + 1;
+     if ((p = strrchr( name, '\\' ))) name = p + 1;
+     home_dir = strdup( home );
+-    user_name = strdup( name );
++    user_name = getenv( "WINEUSERNAME" );
++    if (!user_name) user_name = strdup( name );
+ }
+ 
+ 
+diff --git a/dlls/shell32/shellpath.c b/dlls/shell32/shellpath.c
+index 1a52717..b5a5489 100644
+--- a/dlls/shell32/shellpath.c
++++ b/dlls/shell32/shellpath.c
+@@ -2645,181 +2645,6 @@ end:
+      debugstr_w(szSrc), debugstr_w(szDest));
+     return hr;
+ }
+-
+-static char *xdg_config;
+-static DWORD xdg_config_len;
+-
+-static BOOL WINAPI init_xdg_dirs( INIT_ONCE *once, void *param, void **context )
+-{
+-    const WCHAR *var, *fmt = L"\\??\\unix%s/user-dirs.dirs";
+-    char *p;
+-    WCHAR *name, *ptr;
+-    HANDLE file;
+-    DWORD len;
+-
+-    if (!(var = _wgetenv( L"XDG_CONFIG_HOME" )) || var[0] != '/')
+-    {
+-        if (!(var = _wgetenv( L"WINEHOMEDIR" ))) return TRUE;
+-        fmt = L"%s/.config/user-dirs.dirs";
+-    }
+-    len = lstrlenW(var) + lstrlenW(fmt);
+-    name = malloc( len * sizeof(WCHAR) );
+-    swprintf( name, len, fmt, var );
+-    name[1] = '\\';  /* change \??\ to \\?\ */
+-    for (ptr = name; *ptr; ptr++) if (*ptr == '/') *ptr = '\\';
+-
+-    file = CreateFileW( name, GENERIC_READ, FILE_SHARE_READ, NULL, OPEN_EXISTING, 0, 0 );
+-    free( name );
+-    if (file != INVALID_HANDLE_VALUE)
+-    {
+-        len = GetFileSize( file, NULL );
+-        if (!(xdg_config = malloc( len + 1 ))) return TRUE;
+-        if (!ReadFile( file, xdg_config, len, &xdg_config_len, NULL ))
+-        {
+-            free( xdg_config );
+-            xdg_config = NULL;
+-        }
+-        else
+-        {
+-            for (p = xdg_config; p < xdg_config + xdg_config_len; p++) if (*p == '\n') *p = 0;
+-            *p = 0;  /* append null to simplify string parsing */
+-        }
+-        CloseHandle( file );
+-    }
+-    return TRUE;
+-}
+-
+-static char *get_xdg_path( const char *var )
+-{
+-    static INIT_ONCE once;
+-    char *p, *ret = NULL;
+-    int i;
+-
+-    InitOnceExecuteOnce( &once, init_xdg_dirs, NULL, NULL );
+-    if (!xdg_config) return NULL;
+-
+-    for (p = xdg_config; p < xdg_config + xdg_config_len; p += strlen(p) + 1)
+-    {
+-        while (*p == ' ' || *p == '\t') p++;
+-        if (strncmp( p, var, strlen(var) )) continue;
+-        p += strlen(var);
+-        while (*p == ' ' || *p == '\t') p++;
+-        if (*p != '=') continue;
+-        p++;
+-        while (*p == ' ' || *p == '\t') p++;
+-        if (*p != '"') continue;
+-        p++;
+-        if (*p != '/' && strncmp( p, "$HOME/", 6 )) continue;
+-
+-        if (!(ret = malloc( strlen(p) + 1 ))) break;
+-        for (i = 0; *p && *p != '"'; i++, p++)
+-        {
+-            if (*p == '\\' && p[1]) p++;
+-            ret[i] = *p;
+-        }
+-        ret[i] = 0;
+-        if (*p != '"')
+-        {
+-            free( ret );
+-            ret = NULL;
+-        }
+-        break;
+-    }
+-    return ret;
+-}
+-
+-static BOOL link_folder( HANDLE mgr, const UNICODE_STRING *path, const char *link )
+-{
+-    struct mountmgr_shell_folder *ioctl;
+-    DWORD len = sizeof(*ioctl) + path->Length + strlen(link) + 1;
+-    BOOL ret;
+-
+-    if (!(ioctl = malloc( len ))) return FALSE;
+-    ioctl->create_backup = FALSE;
+-    ioctl->folder_offset = sizeof(*ioctl);
+-    ioctl->folder_size = path->Length;
+-    memcpy( (char *)ioctl + ioctl->folder_offset, path->Buffer, ioctl->folder_size );
+-    ioctl->symlink_offset = ioctl->folder_offset + ioctl->folder_size;
+-    strcpy( (char *)ioctl + ioctl->symlink_offset, link );
+-
+-    ret = DeviceIoControl( mgr, IOCTL_MOUNTMGR_DEFINE_SHELL_FOLDER, ioctl, len, NULL, 0, NULL, NULL );
+-    free( ioctl );
+-    return ret;
+-}
+-
+-/******************************************************************************
+- * create_link
+- *
+- * Sets up a symbolic link for one of the 'My Whatever' shell folders to point
+- * into the corresponding XDG directory.
+- */
+-static void create_link( const WCHAR *path, const char *xdg_name, const char *default_name )
+-{
+-    UNICODE_STRING nt_name;
+-    char *target = NULL;
+-    HANDLE mgr;
+-
+-    if ((mgr = CreateFileW( MOUNTMGR_DOS_DEVICE_NAME, GENERIC_READ | GENERIC_WRITE,
+-                            FILE_SHARE_READ | FILE_SHARE_WRITE, NULL, OPEN_EXISTING,
+-                            0, 0 )) == INVALID_HANDLE_VALUE)
+-    {
+-        FIXME( "failed to connect to mount manager\n" );
+-        return;
+-    }
+-
+-    nt_name.Buffer = NULL;
+-    if (!RtlDosPathNameToNtPathName_U( path, &nt_name, NULL, NULL )) goto done;
+-
+-    if ((target = get_xdg_path( xdg_name )))
+-    {
+-        if (link_folder( mgr, &nt_name, target )) goto done;
+-    }
+-    link_folder( mgr, &nt_name, default_name );
+-
+-done:
+-    RtlFreeUnicodeString( &nt_name );
+-    free( target );
+-    CloseHandle( mgr );
+-}
+-
+-/******************************************************************************
+- * _SHCreateSymbolicLink  [Internal]
+- *
+- * Sets up a symbolic link for one of the special shell folders to point into
+- * the users home directory.
+- *
+- * PARAMS
+- *  nFolder [I] CSIDL identifying the folder.
+- */
+-static void _SHCreateSymbolicLink(int nFolder, const WCHAR *path)
+-{
+-    DWORD folder = nFolder & CSIDL_FOLDER_MASK;
+-
+-    switch (folder) {
+-        case CSIDL_PERSONAL:
+-            create_link( path, "XDG_DOCUMENTS_DIR", "$HOME/Documents" );
+-            break;
+-        case CSIDL_DESKTOPDIRECTORY:
+-            create_link( path, "XDG_DESKTOP_DIR", "$HOME/Desktop" );
+-            break;
+-        case CSIDL_MYPICTURES:
+-            create_link( path, "XDG_PICTURES_DIR", "$HOME/Pictures" );
+-            break;
+-        case CSIDL_MYVIDEO:
+-            create_link( path, "XDG_VIDEOS_DIR", "$HOME/Movies" );
+-            break;
+-        case CSIDL_MYMUSIC:
+-            create_link( path, "XDG_MUSIC_DIR", "$HOME/Music" );
+-            break;
+-        case CSIDL_DOWNLOADS:
+-            create_link( path, "XDG_DOWNLOAD_DIR", "$HOME/Downloads" );
+-            break;
+-        case CSIDL_TEMPLATES:
+-            create_link( path, "XDG_TEMPLATES_DIR", "$HOME/Templates" );
+-            break;
+-    }
+-}
+-
+ /******************************************************************************
+  * SHGetFolderPathW			[SHELL32.@]
+  *
+@@ -3008,10 +2833,6 @@ HRESULT WINAPI SHGetFolderPathAndSubDirW(
+         goto end;
+     }
+ 
+-    /* create symbolic links rather than directories for specific
+-     * user shell folders */
+-    _SHCreateSymbolicLink(folder, szBuildPath);
+-
+     /* create directory/directories */
+     ret = SHCreateDirectoryExW(hwndOwner, szBuildPath, NULL);
+     if (ret && ret != ERROR_ALREADY_EXISTS)
+diff --git a/loader/wine.inf.in b/loader/wine.inf.in
+index 5449302..5323e86 100644
+--- a/loader/wine.inf.in
++++ b/loader/wine.inf.in
+@@ -460,6 +466,7 @@ HKLM,%CurrentVersionNT%\AeDebug,"Debugger",2,"winedbg --auto %ld %ld"
+ HKLM,%CurrentVersionNT%\AeDebug,"Auto",2,"1"
+ HKCU,Software\Wine\Debug,"RelayExclude",2,"ntdll.RtlEnterCriticalSection;ntdll.RtlTryEnterCriticalSection;ntdll.RtlLeaveCriticalSection;kernel32.48;kernel32.49;kernel32.94;kernel32.95;kernel32.96;kernel32.97;kernel32.98;kernel32.TlsGetValue;kernel32.TlsSetValue;kernel32.FlsGetValue;kernel32.FlsSetValue;kernel32.SetLastError"
+ HKCU,Software\Wine\Debug,"RelayFromExclude",2,"winex11.drv;winemac.drv;user32;gdi32;advapi32;kernel32"
++HKCU,Software\Wine\WineDbg,"ShowCrashDialog",0x00010003,0x00000000
+ 
+ [DirectX]
+ HKLM,Software\Microsoft\DirectX,"Version",,"4.09.00.0904"
+@@ -2514,7 +2521,6 @@ HKLM,SOFTWARE\Microsoft\VisualStudio\14.0\VC\Runtimes\x86,"Version",2,"14.42.344
+ 11,,spoolsv.exe,-
+ 11,,termsv.exe,-
+ 11,,wineboot.exe,-
+-11,,winemenubuilder.exe,-
+ 11,,wuauserv.exe,-
+ ; registration order matters for these
+ 11,,msxml.dll
+@@ -2839,7 +2845,6 @@ StartType=3
+ ErrorControl=1
+ 
+ [Services]
+-HKLM,%CurrentVersion%\RunServices,"winemenubuilder",2,"%11%\winemenubuilder.exe -a -r"
+ HKLM,"System\CurrentControlSet\Services\Dnscache\Parameters",,16
+ HKLM,"System\CurrentControlSet\Services\Eventlog\Application",,16
+ HKLM,"System\CurrentControlSet\Services\Eventlog\System","Sources",0x10000,""

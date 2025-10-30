@@ -1,0 +1,25 @@
+From 820d3434f01408c6b4fead33d5e9acf428bc0b16 Mon Sep 17 00:00:00 2001
+From: Constantin Makshin <makshin@topsystems.ru>
+Date: Thu, 12 Jan 2023 18:47:53 +0300
+Subject: [PATCH 1/7] Fix handling of empty blocks in RSAENH_CPDecrypt()
+
+---
+ dlls/rsaenh/rsaenh.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/dlls/rsaenh/rsaenh.c b/dlls/rsaenh/rsaenh.c
+index b3d55d9db16..87c934a3e0a 100644
+--- a/dlls/rsaenh/rsaenh.c
++++ b/dlls/rsaenh/rsaenh.c
+@@ -2800,7 +2800,7 @@ BOOL WINAPI RSAENH_CPDecrypt(HCRYPTPROV hProv, HCRYPTKEY hKey, HCRYPTHASH hHash,
+             }
+             memcpy(in, out, pCryptKey->dwBlockLen);
+         }
+-        if (Final) {
++        if (Final && *pdwDataLen > 0) {
+             if (pbData[*pdwDataLen-1] &&
+              pbData[*pdwDataLen-1] <= pCryptKey->dwBlockLen &&
+              pbData[*pdwDataLen-1] <= *pdwDataLen) {
+-- 
+2.30.2
+

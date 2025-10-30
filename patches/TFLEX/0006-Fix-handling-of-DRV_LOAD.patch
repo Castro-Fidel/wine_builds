@@ -1,0 +1,56 @@
+From 67c8f76cd085ba4235d0638dcb178d52b9c20fd9 Mon Sep 17 00:00:00 2001
+From: Constantin Makshin <makshin@topsystems.ru>
+Date: Wed, 8 Feb 2023 15:53:28 +0300
+Subject: [PATCH 6/7] Fix handling of DRV_LOAD
+
+Description of DRV_LOAD allows any non-zero value as an indication of
+success. One of the drivers which don't limit their return values to
+TRUE and FALSE is TechSmith ScreenCodec v2.
+---
+ dlls/msacm32/internal.c     | 2 +-
+ dlls/msvfw32/msvideo_main.c | 2 +-
+ dlls/winmm/driver.c         | 2 +-
+ 3 files changed, 3 insertions(+), 3 deletions(-)
+
+diff --git a/dlls/msacm32/internal.c b/dlls/msacm32/internal.c
+index 7c2d3b5bf9e..947ecc4419e 100644
+--- a/dlls/msacm32/internal.c
++++ b/dlls/msacm32/internal.c
+@@ -959,7 +959,7 @@ static	BOOL	MSACM_AddToList(PWINE_ACMLOCALDRIVERINST lpNewDrv, LPARAM lParam2)
+ 
+     /* first of this driver in list ? */
+     if (MSACM_GetNumberOfModuleRefs(pDriverBase->hModule, pDriverBase->lpDrvProc, NULL) == 0) {
+-        if (MSACM_DRIVER_SendMessage(lpNewDrv, DRV_LOAD, 0L, 0L) != DRV_SUCCESS) {
++        if (MSACM_DRIVER_SendMessage(lpNewDrv, DRV_LOAD, 0L, 0L) == 0) {
+             FIXME("DRV_LOAD failed on driver %p\n", lpNewDrv);
+             return FALSE;
+         }
+diff --git a/dlls/msvfw32/msvideo_main.c b/dlls/msvfw32/msvideo_main.c
+index d332300c711..70d5ba7c1d2 100644
+--- a/dlls/msvfw32/msvideo_main.c
++++ b/dlls/msvfw32/msvideo_main.c
+@@ -549,7 +549,7 @@ HIC VFWAPI ICOpenFunction(DWORD fccType, DWORD fccHandler, UINT wMode, DRIVERPRO
+     /* Now try opening/loading the driver. Taken from DRIVER_AddToList */
+     /* What if the function is used more than once? */
+ 
+-    if (MSVIDEO_SendMessage(whic, DRV_LOAD, 0L, 0L) != DRV_SUCCESS) 
++    if (MSVIDEO_SendMessage(whic, DRV_LOAD, 0L, 0L) == 0)
+     {
+         WARN("DRV_LOAD failed for hic %p\n", whic->hic);
+         MSVIDEO_FirstHic = whic->next;
+diff --git a/dlls/winmm/driver.c b/dlls/winmm/driver.c
+index 3a20aabda93..fa0ea7cc8f8 100644
+--- a/dlls/winmm/driver.c
++++ b/dlls/winmm/driver.c
+@@ -200,7 +200,7 @@ static	BOOL	DRIVER_AddToList(LPWINE_DRIVER lpNewDrv, LPARAM lParam1, LPARAM lPar
+     /* First driver to be loaded for this module, need to load correctly the module */
+     /* first of this driver in list ? */
+     if (DRIVER_GetNumberOfModuleRefs(lpNewDrv->hModule, NULL) == 0) {
+-        if (DRIVER_SendMessage(lpNewDrv, DRV_LOAD, 0L, 0L) != DRV_SUCCESS) {
++        if (DRIVER_SendMessage(lpNewDrv, DRV_LOAD, 0L, 0L) == 0) {
+             TRACE("DRV_LOAD failed on driver %p\n", lpNewDrv);
+             return FALSE;
+         }
+-- 
+2.30.2
+

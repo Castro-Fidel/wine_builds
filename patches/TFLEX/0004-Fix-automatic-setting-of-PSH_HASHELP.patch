@@ -1,0 +1,27 @@
+From 9378dc49d17ad691441d95f5023b27aa5225c34e Mon Sep 17 00:00:00 2001
+From: Constantin Makshin <makshin@topsystems.ru>
+Date: Wed, 8 Feb 2023 15:37:10 +0300
+Subject: [PATCH 4/7] Fix automatic setting of PSH_HASHELP
+
+---
+ dlls/comctl32/propsheet.c | 4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
+
+diff --git a/dlls/comctl32/propsheet.c b/dlls/comctl32/propsheet.c
+index 96a35338648..75fe393975b 100644
+--- a/dlls/comctl32/propsheet.c
++++ b/dlls/comctl32/propsheet.c
+@@ -825,8 +825,8 @@ static BOOL PROPSHEET_CollectPageInfo(HPROPSHEETPAGE hpsp,
+   psInfo->proppage[index].hasHelp = dwFlags & PSP_HASHELP;
+   psInfo->proppage[index].hasIcon = dwFlags & (PSP_USEHICON | PSP_USEICONID);
+ 
+-  /* as soon as we have a page with the help flag, set the sheet flag on */
+-  if (psInfo->proppage[index].hasHelp)
++  /* as soon as we have an initial page with the help flag, set the sheet flag on */
++  if (psInfo->hwnd == 0 && psInfo->proppage[index].hasHelp)
+     psInfo->hasHelp = TRUE;
+ 
+   /*
+-- 
+2.30.2
+

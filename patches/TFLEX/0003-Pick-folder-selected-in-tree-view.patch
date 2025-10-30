@@ -1,0 +1,33 @@
+From cb1cd5ff6dfb89f36d4dec0ffca124d1c8e6d036 Mon Sep 17 00:00:00 2001
+From: Constantin Makshin <makshin@topsystems.ru>
+Date: Wed, 8 Feb 2023 15:34:02 +0300
+Subject: [PATCH 3/7] Pick folder selected in tree view
+
+---
+ dlls/comdlg32/itemdlg.c | 10 ++++++++++
+ 1 file changed, 10 insertions(+)
+
+diff --git a/dlls/comdlg32/itemdlg.c b/dlls/comdlg32/itemdlg.c
+index 99af524a06f..27791d699b3 100644
+--- a/dlls/comdlg32/itemdlg.c
++++ b/dlls/comdlg32/itemdlg.c
+@@ -3514,6 +3514,16 @@ static HRESULT WINAPI IExplorerBrowserEvents_fnOnNavigationComplete(IExplorerBro
+         ERR("Failed to get the current folder.\n");
+         This->psi_folder = NULL;
+     }
++    else if(This->options & FOS_PICKFOLDERS)
++    {
++        LPWSTR name;
++        hr = IShellItem_GetDisplayName(This->psi_folder, SIGDN_FILESYSPATH, &name);
++        if(SUCCEEDED(hr))
++        {
++            set_file_name(This, name);
++            CoTaskMemFree(name);
++        }
++    }
+ 
+     events_OnFolderChange(This);
+ 
+-- 
+2.30.2
+

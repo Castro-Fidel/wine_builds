@@ -288,13 +288,14 @@ index 1a52717..b5a5489 100644
  /******************************************************************************
   * SHGetFolderPathW			[SHELL32.@]
   *
-@@ -3008,10 +2833,6 @@ HRESULT WINAPI SHGetFolderPathAndSubDirW(
+@@ -3008,11 +2833,6 @@ HRESULT WINAPI SHGetFolderPathAndSubDirW(
          goto end;
      }
  
 -    /* create symbolic links rather than directories for specific
 -     * user shell folders */
--    _SHCreateSymbolicLink(folder, szBuildPath);
+-    if (!pszSubPath)
+-        _SHCreateSymbolicLink(folder, szBuildPath);
 -
      /* create directory/directories */
      ret = SHCreateDirectoryExW(hwndOwner, szBuildPath, NULL);
@@ -303,66 +304,6 @@ diff --git a/loader/wine.inf.in b/loader/wine.inf.in
 index 5449302..5323e86 100644
 --- a/loader/wine.inf.in
 +++ b/loader/wine.inf.in
-@@ -73,7 +73,8 @@ AddReg=\
-     Tapi,\
-     ThemeManager,\
-     VCRuntime.ntx86,\
--    LicenseInformation
-+    LicenseInformation,\
-+    ProtonOverrides
- 
- [DefaultInstall.NT]
- RegisterDlls=RegisterDllsSection
-@@ -99,7 +100,8 @@ AddReg=\
-     ThemeManager,\
-     VCRuntime.ntx86,\
-     VersionInfo,\
--    LicenseInformation
-+    LicenseInformation, \
-+    ProtonOverrides
- 
- [DefaultInstall.ntamd64]
- RegisterDlls=RegisterDllsSection
-@@ -126,7 +128,8 @@ AddReg=\
-     ThemeManager,\
-     VCRuntime.ntamd64,\
-     VersionInfo,\
--    LicenseInformation
-+    LicenseInformation, \
-+    ProtonOverrides
- 
- [DefaultInstall.ntarm64]
- RegisterDlls=RegisterDllsSection
-@@ -153,7 +156,8 @@ AddReg=\
-     VCRuntime.ntamd64,\
-     VCRuntime.ntarm64,\
-     VersionInfo,\
--    LicenseInformation
-+    LicenseInformation, \
-+    ProtonOverrides
- 
- [Wow64Install.ntx86]
- RegisterDlls=RegisterDllsSection
-@@ -171,7 +175,8 @@ AddReg=\
-     VCRuntime.ntamd64,\
-     VCRuntime.ntx86,\
-     VersionInfo,\
--    LicenseInformation
-+    LicenseInformation, \
-+    ProtonOverrides
- 
- [Wow64Install.ntarm]
- RegisterDlls=RegisterDllsSection
-@@ -186,7 +191,8 @@ AddReg=\
-     Misc,\
-     Tapi,\
-     VersionInfo,\
--    LicenseInformation
-+    LicenseInformation, \
-+    ProtonOverrides
- 
- [DefaultInstall.Services]
- AddService=BITS,0,BITSService
 @@ -460,6 +466,7 @@ HKLM,%CurrentVersionNT%\AeDebug,"Debugger",2,"winedbg --auto %ld %ld"
  HKLM,%CurrentVersionNT%\AeDebug,"Auto",2,"1"
  HKCU,Software\Wine\Debug,"RelayExclude",2,"ntdll.RtlEnterCriticalSection;ntdll.RtlTryEnterCriticalSection;ntdll.RtlLeaveCriticalSection;kernel32.48;kernel32.49;kernel32.94;kernel32.95;kernel32.96;kernel32.97;kernel32.98;kernel32.TlsGetValue;kernel32.TlsSetValue;kernel32.FlsGetValue;kernel32.FlsSetValue;kernel32.SetLastError"

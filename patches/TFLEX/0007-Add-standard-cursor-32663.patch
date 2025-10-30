@@ -1,0 +1,40 @@
+From 11ddf7ef8364dc85dfe0e0c76c3276eacf57c37f Mon Sep 17 00:00:00 2001
+From: Constantin Makshin <makshin@topsystems.ru>
+Date: Mon, 18 Sep 2023 19:56:46 +0300
+Subject: [PATCH 7/7] Add standard cursor #32663
+
+Seems to be undocumented but is used by WPF (System.Windows.Input.Cursors.ArrowCD).
+---
+ dlls/user32/user32.rc | 3 +++
+ include/winuser.rh    | 1 +
+ 2 files changed, 4 insertions(+)
+
+diff --git a/dlls/user32/user32.rc b/dlls/user32/user32.rc
+index 14331cc31a9..41e577f2424 100644
+--- a/dlls/user32/user32.rc
++++ b/dlls/user32/user32.rc
+@@ -307,6 +307,9 @@ OCR_RDRSOUTHWEST CURSOR resources/ocr_rdrsouthwest.cur
+ /* @makedep: resources/ocr_rdrsoutheast.cur */
+ OCR_RDRSOUTHEAST CURSOR resources/ocr_rdrsoutheast.cur
+ 
++/* @makedep: resources/ocr_normal.cur */
++OCR_ARROWCD CURSOR resources/ocr_normal.cur
++
+ /****************************************************************/
+ /* Icons */
+ 
+diff --git a/include/winuser.rh b/include/winuser.rh
+index fd984a91742..b1a8170c60f 100644
+--- a/include/winuser.rh
++++ b/include/winuser.rh
+@@ -1082,6 +1082,7 @@
+ #define OCR_RDRNORTHEAST       32660 /* DDK / Win16 */
+ #define OCR_RDRSOUTHWEST       32661 /* DDK / Win16 */
+ #define OCR_RDRSOUTHEAST       32662 /* DDK / Win16 */
++#define OCR_ARROWCD            32663
+ 
+ #define OIC_SAMPLE             32512
+ #define OIC_HAND               32513
+-- 
+2.30.2
+

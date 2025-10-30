@@ -1,0 +1,42 @@
+From 0304a425fd7832e1692d224388e411ae253a70fe Mon Sep 17 00:00:00 2001
+From: Brendan McGrath <bmcgrath@codeweavers.com>
+Date: Thu, 18 Jul 2024 17:55:53 +1000
+Subject: [PATCH] winegstreamer: Remove 'au' alignment for h264.
+
+h264parse does not correctly determine 'nal' alignment if this caps is
+provided.
+
+CW-Bug-Id: #23226
+CW-Bug-Id: #23425
+---
+ dlls/winegstreamer/wg_format.c     | 1 -
+ dlls/winegstreamer/wg_media_type.c | 1 -
+ 2 files changed, 2 deletions(-)
+
+diff --git a/dlls/winegstreamer/wg_format.c b/dlls/winegstreamer/wg_format.c
+index fd8f99c256b..afbc8eab137 100644
+--- a/dlls/winegstreamer/wg_format.c
++++ b/dlls/winegstreamer/wg_format.c
+@@ -884,7 +884,6 @@ static GstCaps *wg_format_to_caps_video_h264(const struct wg_format *format)
+     if (!(caps = gst_caps_new_empty_simple("video/x-h264")))
+         return NULL;
+     gst_caps_set_simple(caps, "stream-format", G_TYPE_STRING, "byte-stream", NULL);
+-    gst_caps_set_simple(caps, "alignment", G_TYPE_STRING, "au", NULL);
+ 
+     if (format->u.video.width)
+         gst_caps_set_simple(caps, "width", G_TYPE_INT, format->u.video.width, NULL);
+diff --git a/dlls/winegstreamer/wg_media_type.c b/dlls/winegstreamer/wg_media_type.c
+index 3e0effcbe66..c26a6518a02 100644
+--- a/dlls/winegstreamer/wg_media_type.c
++++ b/dlls/winegstreamer/wg_media_type.c
+@@ -296,7 +296,6 @@ static void init_caps_from_video_h264(GstCaps *caps, const MFVIDEOFORMAT *format
+     gst_structure_remove_field(gst_caps_get_structure(caps, 0), "format");
+     gst_structure_set_name(gst_caps_get_structure(caps, 0), "video/x-h264");
+     gst_caps_set_simple(caps, "stream-format", G_TYPE_STRING, "byte-stream", NULL);
+-    gst_caps_set_simple(caps, "alignment", G_TYPE_STRING, "au", NULL);
+ 
+     if (format_size > sizeof(*format) && (buffer = gst_buffer_new_and_alloc(format_size - sizeof(*format))))
+     {
+-- 
+2.50.0
+

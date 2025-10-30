@@ -1,0 +1,255 @@
+From 5dc8a07844857e03916083896c0824512f0669f5 Mon Sep 17 00:00:00 2001
+From: Constantin Makshin <makshin@topsystems.ru>
+Date: Mon, 16 Jan 2023 20:09:06 +0300
+Subject: [PATCH 2/7] Handle WM_EX_ACCEPTFILES in drag-and-drop
+
+---
+ dlls/ole32/ole2.c | 141 ++++++++++++++++++++++++++++++++++++++++++++--
+ 1 file changed, 135 insertions(+), 6 deletions(-)
+
+diff --git a/dlls/ole32/ole2.c b/dlls/ole32/ole2.c
+index f4672b704ee..76a1b9df1a1 100644
+--- a/dlls/ole32/ole2.c
++++ b/dlls/ole32/ole2.c
+@@ -40,6 +40,7 @@
+ #include "winreg.h"
+ #include "ole2.h"
+ #include "ole2ver.h"
++#include "shlobj.h" /* DROPFILES */
+ 
+ #include "compobj_private.h"
+ #include "olestd.h"
+@@ -60,12 +61,14 @@ typedef struct tagTrackerWindowInfo
+   IDropSource* dropSource;
+   DWORD        dwOKEffect;
+   DWORD*       pdwEffect;
++  BOOL         draggingFiles;   /* dataObject has data of type CF_HDROP */
+   BOOL       trackingDone;
+   BOOL         inTrackCall;
+   HRESULT      returnValue;
+ 
+   BOOL       escPressed;
+   HWND       curTargetHWND;	/* window the mouse is hovering over */
++  HWND       curTargetFilesHWND; /* window that has WS_EX_ACCEPTFILES the mouse is hovering over */
+   IDropTarget* curDragTarget;
+   POINTL     curMousePos;       /* current position of the mouse in screen coordinates */
+   DWORD      dwKeyState;        /* current state of the shift and ctrl keys and the mouse buttons */
+@@ -143,6 +146,8 @@ static void OLEDD_Initialize(void);
+ static LRESULT WINAPI  OLEDD_DragTrackerWindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam);
+ static void OLEDD_TrackStateChange(TrackerWindowInfo* trackerInfo);
+ static DWORD OLEDD_GetButtonState(void);
++static BOOL OLEDD_HasHDROP(IDataObject *data);
++static HRESULT OLEDD_SendDropFiles(TrackerWindowInfo *info);
+ 
+ /******************************************************************************
+  *		OleBuildVersion [OLE32.@]
+@@ -747,10 +752,12 @@ HRESULT WINAPI DoDragDrop (
+   trackerInfo.dropSource        = pDropSource;
+   trackerInfo.dwOKEffect        = dwOKEffect;
+   trackerInfo.pdwEffect         = pdwEffect;
++  trackerInfo.draggingFiles     = (dwOKEffect & DROPEFFECT_COPY) && OLEDD_HasHDROP(pDataObject);
+   trackerInfo.trackingDone      = FALSE;
+   trackerInfo.inTrackCall       = FALSE;
+   trackerInfo.escPressed        = FALSE;
+   trackerInfo.curTargetHWND     = 0;
++  trackerInfo.curTargetFilesHWND = 0;
+   trackerInfo.curDragTarget     = 0;
+ 
+   hwndTrackWindow = CreateWindowW(OLEDD_DRAGTRACKERCLASS, L"TrackerWindow",
+@@ -2161,6 +2168,18 @@ static LRESULT WINAPI OLEDD_DragTrackerWindowProc(
+   return DefWindowProcW (hwnd, uMsg, wParam, lParam);
+ }
+ 
++/* Based on function in dlls/winex11.drv/xdnd.c */
++static HWND window_accepting_files(HWND hwnd)
++{
++    while (hwnd && !(GetWindowLongW(hwnd, GWL_EXSTYLE) & WS_EX_ACCEPTFILES))
++        /* MUST to be GetParent, not GetAncestor, because the owner window
++         * (with WS_EX_ACCEPTFILES) of a window with WS_POPUP is a valid
++         * drop target. GetParent works exactly this way!
++         */
++        hwnd = GetParent(hwnd);
++    return hwnd;
++}
++
+ static void drag_enter( TrackerWindowInfo *info, HWND new_target )
+ {
+     HRESULT hr;
+@@ -2187,12 +2206,21 @@ static void drag_enter( TrackerWindowInfo *info, HWND new_target )
+             info->curDragTarget = NULL;
+             info->curTargetHWND = NULL;
+         }
++        if ((!info->curDragTarget || *info->pdwEffect == DROPEFFECT_NONE) && info->draggingFiles)
++        {
++            info->curTargetFilesHWND = window_accepting_files(new_target);
++            if (info->curTargetFilesHWND)
++            {
++                TRACE("window %p accepts files\n", info->curTargetFilesHWND);
++                *info->pdwEffect = DROPEFFECT_COPY;
++            }
++        }
+     }
+ }
+ 
+ static void drag_end( TrackerWindowInfo *info )
+ {
+-    HRESULT hr;
++    HRESULT hr = E_FAIL;
+ 
+     info->trackingDone = TRUE;
+     ReleaseCapture();
+@@ -2220,6 +2248,9 @@ static void drag_end( TrackerWindowInfo *info )
+     }
+     else
+         *info->pdwEffect = DROPEFFECT_NONE;
++
++    if ((hr != S_OK || *info->pdwEffect == DROPEFFECT_NONE) && info->curTargetFilesHWND)
++        info->returnValue = OLEDD_SendDropFiles( info );
+ }
+ 
+ static HRESULT give_feedback( TrackerWindowInfo *info )
+@@ -2228,7 +2259,7 @@ static HRESULT give_feedback( TrackerWindowInfo *info )
+     int res;
+     HCURSOR cur;
+ 
+-    if (info->curDragTarget == NULL)
++    if (info->curDragTarget == NULL && info->curTargetFilesHWND == NULL)
+         *info->pdwEffect = DROPEFFECT_NONE;
+ 
+     hr = IDropSource_GiveFeedback( info->dropSource, *info->pdwEffect );
+@@ -2265,6 +2296,7 @@ static void OLEDD_TrackStateChange(TrackerWindowInfo* trackerInfo)
+ {
+   HWND   hwndNewTarget = 0;
+   POINT pt;
++  HRESULT hr;
+ 
+   /*
+    * This method may be called from QueryContinueDrag again,
+@@ -2294,6 +2326,7 @@ static void OLEDD_TrackStateChange(TrackerWindowInfo* trackerInfo)
+       IDropTarget_Release(trackerInfo->curDragTarget);
+       trackerInfo->curDragTarget = NULL;
+       trackerInfo->curTargetHWND = NULL;
++      trackerInfo->curTargetFilesHWND = NULL;
+     }
+ 
+     if (hwndNewTarget)
+@@ -2308,12 +2341,18 @@ static void OLEDD_TrackStateChange(TrackerWindowInfo* trackerInfo)
+     if (trackerInfo->curDragTarget)
+     {
+       *trackerInfo->pdwEffect = trackerInfo->dwOKEffect;
+-      IDropTarget_DragOver(trackerInfo->curDragTarget,
+-                           trackerInfo->dwKeyState,
+-                           trackerInfo->curMousePos,
+-                           trackerInfo->pdwEffect);
++      hr = IDropTarget_DragOver(trackerInfo->curDragTarget,
++                                trackerInfo->dwKeyState,
++                                trackerInfo->curMousePos,
++                                trackerInfo->pdwEffect);
+       *trackerInfo->pdwEffect &= trackerInfo->dwOKEffect;
+     }
++    else
++      hr = E_FAIL;
++
++    if ((hr != S_OK || *trackerInfo->pdwEffect == DROPEFFECT_NONE) && trackerInfo->curTargetFilesHWND)
++       *trackerInfo->pdwEffect = DROPEFFECT_COPY;
++
+     give_feedback( trackerInfo );
+   }
+   else
+@@ -3161,3 +3200,93 @@ HANDLE WINAPI OleDuplicateData(HANDLE hSrc, CLIPFORMAT cfFormat, UINT uiFlags)
+     TRACE("returning %p\n", hDst);
+     return hDst;
+ }
++
++static BOOL OLEDD_HasHDROP(IDataObject *data)
++{
++    HRESULT hr;
++    FORMATETC fmt;
++    init_fmtetc(&fmt, CF_HDROP, TYMED_HGLOBAL);
++    hr = IDataObject_QueryGetData(data, &fmt);
++    if (hr != S_OK)
++        return FALSE;
++
++    TRACE("found CF_HDROP\n");
++    return TRUE;
++}
++
++static HRESULT OLEDD_SendDropFiles(TrackerWindowInfo *info)
++{
++    HRESULT hr;
++    FORMATETC fmt;
++    STGMEDIUM med;
++    SIZE_T size;
++    LPVOID data;
++    HGLOBAL dropHandle;
++
++    if (!info->curTargetFilesHWND)
++        return S_OK;
++
++    init_fmtetc(&fmt, CF_HDROP, TYMED_HGLOBAL);
++    hr = IDataObject_GetData(info->dataObject, &fmt, &med);
++    if (hr != S_OK)
++        return hr;
++    if (med.tymed != TYMED_HGLOBAL)
++    {
++        TRACE("requested medium of type %d but got %d\n", TYMED_HGLOBAL, (int)med.tymed);
++        hr = HRESULT_FROM_WIN32(ERROR_INVALID_DATA);
++        goto end;
++    }
++
++    /* Must have space for at least header and two terminating null characters  */
++    size = GlobalSize(med.hGlobal);
++    if (size < sizeof(DROPFILES) + 2 * sizeof(WCHAR))
++    {
++        TRACE("invalid data length\n");
++        hr = HRESULT_FROM_WIN32(ERROR_INVALID_DATA);
++        goto end;
++    }
++
++    data = GlobalLock(med.hGlobal);
++    if (!data)
++    {
++        hr = HRESULT_FROM_WIN32(GetLastError());
++        goto end;
++    }
++
++    /* Based on function X11DRV_XDND_SendDropFiles in dlls/winex11.drv/xdnd.c */
++    dropHandle = GlobalAlloc(GMEM_FIXED, size);
++    if (dropHandle)
++    {
++        RECT rect;
++        DROPFILES *lpDrop = GlobalLock(dropHandle);
++        memcpy(lpDrop, data, size);
++        GlobalUnlock(med.hGlobal);
++
++        lpDrop->pt.x = info->curMousePos.x;
++        lpDrop->pt.y = info->curMousePos.y;
++        lpDrop->fNC  = !(ScreenToClient(info->curTargetFilesHWND, &lpDrop->pt) &&
++                        GetClientRect(info->curTargetFilesHWND, &rect) &&
++                        PtInRect(&rect, lpDrop->pt));
++        TRACE("Sending WM_DROPFILES: hWnd=0x%p, fNC=%d, x=%ld, y=%ld, files=%p(%s)\n", info->curTargetFilesHWND,
++                lpDrop->fNC, lpDrop->pt.x, lpDrop->pt.y, ((char*)lpDrop) + lpDrop->pFiles,
++                debugstr_w((WCHAR*)(((char*)lpDrop) + lpDrop->pFiles)));
++        GlobalUnlock(dropHandle);
++        if (PostMessageW(info->curTargetFilesHWND, WM_DROPFILES, (WPARAM)dropHandle, 0))
++            hr = S_OK;
++        else
++        {
++            hr = HRESULT_FROM_WIN32(GetLastError());
++            GlobalFree(dropHandle);
++        }
++    }
++    else
++    {
++        hr = HRESULT_FROM_WIN32(GetLastError());
++        GlobalUnlock(med.hGlobal);
++    }
++
++end:
++    ReleaseStgMedium(&med);
++
++    return hr;
++}
+-- 
+2.30.2
+

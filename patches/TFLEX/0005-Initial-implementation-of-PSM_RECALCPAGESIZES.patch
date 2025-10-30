@@ -1,0 +1,183 @@
+From 4b86c3583a39d1b1dd461d39d49ca56b2c070266 Mon Sep 17 00:00:00 2001
+From: Constantin Makshin <makshin@topsystems.ru>
+Date: Wed, 8 Feb 2023 15:39:55 +0300
+Subject: [PATCH 5/7] Initial implementation of PSM_RECALCPAGESIZES
+
+---
+ dlls/comctl32/propsheet.c | 146 +++++++++++++++++++++++++++++++++++++-
+ 1 file changed, 143 insertions(+), 3 deletions(-)
+
+diff --git a/dlls/comctl32/propsheet.c b/dlls/comctl32/propsheet.c
+index 75fe393975b..5ca1474f4df 100644
+--- a/dlls/comctl32/propsheet.c
++++ b/dlls/comctl32/propsheet.c
+@@ -32,7 +32,6 @@
+  *   - Wizard 97 header resizing
+  *   - Enforcing of minimal wizard size
+  *   - Messages:
+- *     o PSM_RECALCPAGESIZES
+  *     o WM_HELP
+  *     o WM_CONTEXTMENU
+  *   - Notifications:
+@@ -1557,6 +1556,80 @@ PROPSHEET_WizardSubclassProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam,
+   return DefSubclassProc(hwnd, uMsg, wParam, lParam);
+ }
+ 
++/*
++ * Get the size of the dialog defined by an in-memory Template
++ *
++ *( Based on the code of PROPSHEET_CollectPageInfo)
++ * See also dialog.c/DIALOG_ParseTemplate32().
++ */
++
++static BOOL GetTemplateDialogSize(SIZE* size,
++                                  HPROPSHEETPAGE hpsp,
++                                  const PropSheetInfo * psInfo)
++{
++  const DLGTEMPLATE* pTemplate;
++  const WORD*  p;
++
++  if (!hpsp)
++    return FALSE;
++
++  /*
++   * Process page template.
++   */
++  pTemplate = HPSP_load_template(hpsp, NULL);
++
++  /*
++   * Extract the size of the page.
++   */
++  if (!pTemplate)
++    return FALSE;
++
++  p = (const WORD *)pTemplate;
++
++  if (((const MyDLGTEMPLATEEX*)pTemplate)->signature == 0xFFFF)
++  {
++    /* DLGTEMPLATEEX (not defined in any std. header file) */
++
++    p++;       /* dlgVer    */
++    p++;       /* signature */
++    p += 2;    /* help ID   */
++    p += 2;    /* ext style */
++    p += 2;    /* style     */
++  }
++  else
++  {
++    /* DLGTEMPLATE */
++
++    p += 2;    /* style     */
++    p += 2;    /* ext style */
++  }
++
++  p++;    /* nb items */
++  p++;    /*   x      */
++  p++;    /*   y      */
++  size->cx = *p; p++;
++  size->cy = *p; p++;
++
++  /* Special calculation for interior wizard pages so the largest page is
++   * calculated correctly. We need to add all the padding and space occupied
++   * by the header so the width and height sums up to the whole wizard client
++   * area. */
++  if ((psInfo->ppshheader.dwFlags & (PSH_WIZARD97_OLD | PSH_WIZARD97_NEW)) &&
++      (psInfo->ppshheader.dwFlags & PSH_HEADER) &&
++      !(HPSP_get_flags(hpsp) & PSP_HIDEHEADER))
++  {
++      size->cy += 2 * WIZARD_PADDING + WIZARD_HEADER_HEIGHT;
++      size->cx += 2 * WIZARD_PADDING;
++  }
++  if (psInfo->ppshheader.dwFlags & PSH_WIZARD)
++  {
++      size->cy += 2 * WIZARD_PADDING;
++      size->cx += 2 * WIZARD_PADDING;
++  }
++
++  return TRUE;
++}
++
+ /******************************************************************************
+  *            PROPSHEET_CreatePage
+  *
+@@ -2827,8 +2900,75 @@ static LRESULT PROPSHEET_GetResult(HWND hwndDlg)
+  */
+ static BOOL PROPSHEET_RecalcPageSizes(HWND hwndDlg)
+ {
+-    FIXME("(%p): stub\n", hwndDlg);
+-    return FALSE;
++    int index;
++    RECT units;
++    PropSheetInfo * psInfo = GetPropW(hwndDlg, PropSheetInfoStr);
++
++    TRACE("(%p)\n", hwndDlg);
++
++    /* retrieve the dialog units */
++    units.left = units.right = 4;
++    units.top = units.bottom = 8;
++    MapDialogRect(hwndDlg, &units);
++
++    for (index = 0; index < psInfo->nPages; index++)
++    {
++        SIZE size;
++        RECT rc;
++        HWND hwndPage = psInfo->proppage[index].hwndPage;
++        if (hwndPage == NULL)
++        {
++            if (!GetTemplateDialogSize(&size, psInfo->proppage[index].hpage, psInfo))
++            {
++                WARN("failed to get the template size of page #%d", index);
++                return FALSE;
++            }
++        }
++        else if (GetWindowRect(hwndPage, &rc))
++        {
++            size.cx = MulDiv(rc.right - rc.left, 4, units.left);
++            size.cy = MulDiv(rc.bottom - rc.top, 8, units.top);
++        }
++        else
++        {
++            WARN("failed to get the current size of page #%d", index);
++            return FALSE;
++        }
++
++        if (size.cx > psInfo->width)
++            psInfo->width = size.cx;
++        if (size.cy > psInfo->height)
++            psInfo->height = size.cy;
++    }
++
++    if (psInfo->ppshheader.dwFlags & INTRNL_ANY_WIZARD)
++    {
++        PROPSHEET_AdjustSizeWizard(hwndDlg, psInfo);
++        PROPSHEET_AdjustButtonsWizard(hwndDlg, psInfo);
++    }
++    else if (PROPSHEET_SizeMismatch(hwndDlg, psInfo))
++    {
++        PROPSHEET_AdjustSize(hwndDlg, psInfo);
++        PROPSHEET_AdjustButtons(hwndDlg, psInfo);
++    }
++
++    /* Resize the active property sheet page (if there is one) to fit in the Tab control
++    * (for regular property sheets) or to fit in the client area (for wizards). */
++    index = psInfo->active_page;
++    if (index >= 0 && index < psInfo->nPages)
++    {
++        RECT rc;
++
++        PROPSHEET_GetPageRect(psInfo, hwndDlg, &rc, psInfo->proppage[index].hpage);
++        TRACE("setting page %p, rc (%s) w=%ld, h=%ld\n",
++            psInfo->proppage[index].hwndPage, wine_dbgstr_rect(&rc),
++            rc.right - rc.left, rc.bottom - rc.top);
++        SetWindowPos(psInfo->proppage[index].hwndPage, HWND_TOP,
++                    rc.left, rc.top,
++                    rc.right - rc.left, rc.bottom - rc.top, 0);
++    }
++
++    return TRUE;
+ }
+ 
+ /******************************************************************************
+-- 
+2.30.2
+

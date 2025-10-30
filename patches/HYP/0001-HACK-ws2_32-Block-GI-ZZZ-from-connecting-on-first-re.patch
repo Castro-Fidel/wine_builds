@@ -1,0 +1,61 @@
+From 4bc91b2e221edfdc447a290d404a70f099ac8b92 Mon Sep 17 00:00:00 2001
+From: NelloKudo <marshnelloosu@gmail.com>
+Date: Fri, 13 Jun 2025 21:28:02 +0200
+Subject: [PATCH] HACK: ws2_32: Block GI/ZZZ from connecting on first request.
+
+Fixes possible launch issues and high CPU usage on GI/ZZZ.
+Blocking the first internet request is actually enough to make it work.
+---
+ dlls/ws2_32/socket.c | 29 +++++++++++++++++++++++++++++
+ 1 file changed, 29 insertions(+)
+
+diff --git a/dlls/ws2_32/socket.c b/dlls/ws2_32/socket.c
+index d4223e93bd1..74ded283b4e 100644
+--- a/dlls/ws2_32/socket.c
++++ b/dlls/ws2_32/socket.c
+@@ -1262,6 +1262,24 @@ int WINAPI closesocket( SOCKET s )
+     return 0;
+ }
+ 
++static BOOL is_mhy(void)
++{
++    static volatile char cache = -1;
++    BOOL ret = cache;
++    if (ret == -1)
++    {
++        const WCHAR *p, *name = NtCurrentTeb()->Peb->ProcessParameters->ImagePathName.Buffer;
++        if ((p = wcsrchr(name, '/')))
++            name = p + 1;
++        if ((p = wcsrchr(name, '\\')))
++            name = p + 1;
++        ret = (!wcsicmp(name, L"GenshinImpact.exe") ||
++               !wcsicmp(name, L"YuanShen.exe") ||
++               !wcsicmp(name, L"ZenlessZoneZero.exe"));
++        cache = ret;
++    }
++    return ret;
++}
+ 
+ /***********************************************************************
+  *      connect   (ws2_32.4)
+@@ -1273,6 +1291,17 @@ int WINAPI connect( SOCKET s, const struct sockaddr *addr, int len )
+     HANDLE sync_event;
+     NTSTATUS status;
+ 
++    // HACK: Block GI/ZZZ from connecting to internet on first request.
++    // Fixes game not launching/high CPU usage issues.
++    static int delay_start = 0;
++
++    if (!delay_start && is_mhy()) 
++    {
++        delay_start++;
++        FIXME("GI/ZZZ detected, blocking first connection..\n");
++        return SOCKET_ERROR;
++    }
++
+     TRACE( "socket %#Ix, addr %s, len %d\n", s, debugstr_sockaddr(addr), len );
+ 
+     if (!(sync_event = get_sync_event())) return -1;
+-- 
+2.49.0
+
