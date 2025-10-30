@@ -1,4 +1,13 @@
-﻿/* Default UI description, language subject to change as it develops */
+// Fixes applied to Xalia's main.gudl for Proton. Update these in xalia-fixups.gudl.
+
+if (is_hwnd_syslink) {
+    supported: true;
+}
+
+if (win32_class_name == "Rockstar Games Launcher Installer") {
+    application_supports_gamepad: true;
+}
+/* Default UI description, language subject to change as it develops */
 
 // Control configuration
 root {
@@ -379,16 +388,28 @@ application (name == "plasmashell") {
     }
 }
 
+// APPLICATION: Trine launcher
+
+if (win32_process_name == "trine1_launcher" or win32_process_name == "trine2_launcher") {
+    application_supports_gamepad: true;
+}
+
 // APPLICATION: Unity3D launchers
 dialog (child_matches(win32_class_name == "SysTabControl32" and win32_control_id == 1016 and win32_item_count == 2) and
         child_matches(image and win32_control_id == 1001))
 {
     is_unity3d_launcher: true;
+    supported: true;
 }
 
-cell (parent.parent.parent.parent.is_unity3d_launcher)
+if ((is_hwnd_listview_cell or is_hwnd_header_item) and (parent.parent.parent.parent.is_unity3d_launcher))
 {
-    primary_action: on_release(send_click+send_click);
+    // This is the table on the Input tab. For most games these are so broken that we can't work with it in Xalia.
+    // The most common observed behavior in a small sample is that pressing any gamepad button queues it as an
+    // input, and attempting to bind a control will immediately bind it to that button. Thus, pressing the button
+    // to activate the cell will just bind it to A.
+    targetable: false;
+    // primary_action: on_release(send_click+send_click);
 }
 
 // APPLICATION: VLC
@@ -443,6 +464,14 @@ if (application_name == "xfce4-panel") {
 
 // Toolkit-specific behaviors
 
+// TOOLKIT: RPG Maker
+
+if (win32_class_name == "TFormLcfGameMain")
+{
+    // The game window contains only a button control that is technically visible+enabled but actually hidden.
+    interactable: false;
+}
+
 // TOOLKIT: Delphi
 
 root (child_matches(win32_class_name == "TApplication" and toplevel_interactable)) {
@@ -452,6 +481,56 @@ root (child_matches(win32_class_name == "TApplication" and toplevel_interactable
 
 if (win32_class_name == "TMainForm" and visible and root.delphi_pid_override == pid) {
     toplevel_interactable: true;
+}
+
+if (win32_class_name == "TMainForm" or win32_class_name == "TPanel" or
+    win32_class_name == "TTabSheet" or win32_class_name == "TScrollBox" or
+    win32_class_name == "TRadioGroup") {
+    supported: not child_matches(not supported);
+}
+
+// TOOLKIT: wxWidgets (Win32)
+
+if (class_name == "wxWindowClassNR") {
+    supported: not child_matches(not supported);
+}
+
+// TOOLKIT: Win32
+if (is_hwnd_dialog) {
+    supported: child_matches(supported) and not child_matches(not supported);
+}
+
+if (is_hwnd_button) {
+    supported: not splitbutton;
+
+    if (ownerdraw) {
+        recurse: true;
+        if (interactable) {
+            targetable: not descendent_matches(targetable);
+        }
+    }
+}
+
+if (is_hwnd_static) {
+    supported: not child_matches(not supported);
+}
+
+if (is_hwnd_combobox or is_hwnd_trackbar or is_hwnd_edit or is_hwnd_listview or is_nonclient_scrollbar) {
+    supported: true;
+}
+
+if (is_hwnd_tab_control) {
+    supported: not child_matches(not is_hwnd_tab_item and not supported);
+}
+
+if (win32_real_class_name == "SysIPAddress32") {
+    // IP Address control. We get support for free because it's a container of 4 edit controls
+    supported: true;
+}
+
+if (win32_real_class_name == "msctls_progress32") {
+    // Progress bar. Generally no user inputs accepted.
+    supported: true;
 }
 
 // General behaviors:
@@ -751,6 +830,17 @@ if (is_win32_virtual_scrollbar) {
 
 // Top-level objects
 
+root {
+    if (environ.XALIA_SUPPORTED_ONLY and environ.XALIA_SUPPORTED_ONLY != "0") {
+        supported_only: true;
+    }
+}
+
+if (parent.is_root and not is_msaa_element and not is_uia_element) {
+    // Fallback for pure Win32 with custom toplevel window class.
+    supported: child_matches(supported and not is_win32_nonclient) and not child_matches(not supported);
+}
+
 if (role.(desktop_frame or application)) {
     recurse: true;
 }
@@ -832,6 +922,10 @@ window (framework_id == "Slate") { // Unreal Engine's GUI toolkit
 if (application_supports_gamepad) {
     interactable: false;
     toplevel_interactable: false;
+}
+
+if (root.supported_only and toplevel_interactable and not supported) {
+    interactable: false;
 }
 
 if (toplevel_interactable or is_active_modal) {
