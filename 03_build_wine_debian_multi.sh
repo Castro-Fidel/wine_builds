@@ -41,12 +41,6 @@ elif [[ -d "$scriptdir"/wine-wh/ ]] ; then
 	if [[ -z "$WINE_FULL_NAME" ]] ; then
 		WINE_FULL_NAME="wine_wh_$(awk '{print $3}' "$CUSTOM_SRC_PATH/VERSION" | sed 's/\./-/')_wow64"
 	fi
-elif [[ -d "$scriptdir"/wine-tkg-ntsync/ ]] ; then
-	CUSTOM_SRC_PATH="$scriptdir"/wine-tkg-ntsync/
-	WINE_BUILD_OPTIONS+=" --with-gstreamer"
-	if [[ -z "$WINE_FULL_NAME" ]] ; then
-		WINE_FULL_NAME="WINE_LG_NTSYNC_$(awk '{print $3}' "$CUSTOM_SRC_PATH/VERSION" | sed 's/\./-/')"
-	fi
 elif [[ -d "$scriptdir"/proton-ge/ ]] ; then
 	CUSTOM_SRC_PATH="$scriptdir"/proton-ge/
 	WINE_BUILD_OPTIONS+=" --with-gstreamer"
@@ -145,12 +139,11 @@ fi
 if [[ "$WINE_FULL_NAME" =~ PROTON_LG_* ]] ; then
 	sed -i "s/\"wine-/\"$WINE_FULL_NAME wine-/g" configure
 	sed -i "s/\"wine-/\"$WINE_FULL_NAME wine-/g" configure.ac
-elif [[ "$WINE_FULL_NAME" =~ WINE_LG_NT* ]] ; then
-	sed -i "s/TkG Staging Esync/LG_NTSYNC/g" configure
-	sed -i "s/TkG Staging Esync/LG_NTSYNC/g" configure.ac
 else
-	sed -i "s/TkG Staging Esync Fsync/LG/g" configure
-	sed -i "s/TkG Staging Esync Fsync/LG/g" configure.ac
+	sed -i "s/TkG Staging NTsync/LG - TkG based/g" configure
+	sed -i "s/TkG Staging NTsync/LG - TkG based/g" configure.ac
+	sed -i "s/TkG Staging Esync Fsync/LG - TkG based/g" configure
+	sed -i "s/TkG Staging Esync Fsync/LG - TkG based/g" configure.ac
 fi
 
 export CROSSCC_X32="i686-w64-mingw32-gcc"
